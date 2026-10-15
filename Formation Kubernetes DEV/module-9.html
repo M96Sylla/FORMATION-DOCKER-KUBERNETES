@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 9 &middot; Volumes & Stockage Persistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117; --txt: #e6edf3; --muted: #8b949e;
+      --line: rgba(255, 255, 255, 0.1); --panel: rgba(255, 255, 255, 0.04);
+      --c1: #56d364; --c2: #58a6ff;
+      --font-display: 'Instrument Serif', Georgia, serif; --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--font-body); background: var(--bg); color: var(--txt); overflow: hidden; height: 100vh; }
+    .deck { width: 100vw; height: 100vh; position: relative; }
+    .slide { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transform: scale(0.97) translateY(20px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
+    .slide.active { opacity: 1; transform: scale(1) translateY(0); pointer-events: all; z-index: 10; }
+    .blobs { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.15; }
+    .blob-1 { top: -10%; right: -5%; width: 500px; height: 500px; background: var(--c1); }
+    .blob-2 { bottom: -10%; left: -5%; width: 400px; height: 400px; background: var(--c2); }
+    .content { position: relative; z-index: 2; width: 100%; max-width: 1100px; padding: 40px; max-height: 85vh; overflow-y: auto; }
+    .content::-webkit-scrollbar { width: 6px; }
+    .content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    .step-label { font-weight: 700; text-transform: uppercase; letter-spacing: 3px; color: var(--c1); font-size: 0.75rem; margin-bottom: 16px; display: block; opacity: 0.8; }
+    h1 { font-family: var(--font-display); font-size: clamp(3.5rem, 5vw, 4.5rem); font-style: italic; line-height: 1.05; margin: 0 0 30px; background: linear-gradient(135deg, #fff, var(--c1)); -webkit-background-clip: text; color: transparent; }
+    h2 { font-family: var(--font-display); font-size: clamp(2.5rem, 4vw, 3.2rem); font-style: italic; margin: 0 0 24px; color: #fff; font-weight: 400; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 35px 40px; line-height: 1.8; font-size: 1.1rem; color: #c9d1d9; backdrop-filter: blur(12px); box-shadow: 0 25px 50px rgba(0,0,0,0.2); }
+    .panel p { margin: 0 0 20px; } .panel p:last-child { margin-bottom: 0; }
+    .panel strong { color: #fff; font-weight: 500; }
+    .panel ul { margin: 0; padding-left: 20px; } .panel li { margin-bottom: 12px; }
+    .panel em { color: var(--c1); font-style: normal; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .mini-card { padding: 22px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 16px; }
+    .mini-card h3 { margin: 0 0 10px; font-size: 1.05rem; color: #fff; font-weight: 500; }
+    .mini-card p { margin: 0; font-size: 0.92rem; color: var(--muted); line-height: 1.6; }
+    .mini-card .mini-num { font-family: var(--font-display); font-style: italic; font-size: 2rem; color: var(--c1); line-height: 1; margin-bottom: 8px; }
+    .mini-card .mini-tag { font-family: var(--font-mono); font-size: 0.78rem; color: var(--c2); display: block; margin-top: 8px; }
+    .qcm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px; }
+    .flip-card { perspective: 1200px; height: 200px; cursor: pointer; }
+    .flip-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1); transform-style: preserve-3d; border-radius: 20px; }
+    .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
+    .flip-front, .flip-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; padding: 25px; display: flex; flex-direction: column; justify-content: center; backdrop-filter: blur(10px); }
+    .flip-front { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); transition: background 0.3s, border-color 0.3s; }
+    .flip-front:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.2); }
+    .q-num { font-size: 0.8rem; font-weight: 700; color: var(--c1); margin-bottom: 10px; letter-spacing: 1px; }
+    .q-text { font-size: 1.05rem; font-weight: 500; color: #fff; line-height: 1.5; }
+    .flip-back { transform: rotateY(180deg); font-size: 0.95rem; line-height: 1.6; border: 1px solid transparent; }
+    .b-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+    .flip-card[data-correct="true"] .flip-back { background: rgba(63, 185, 80, 0.08); border-color: rgba(63, 185, 80, 0.3); box-shadow: 0 10px 30px rgba(63, 185, 80, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="true"] .b-title { color: #3fb950; }
+    .flip-card[data-correct="true"] .b-title::after { content: 'Vrai'; font-size: 0.8rem; padding: 2px 8px; background: rgba(63, 185, 80, 0.2); border-radius: 10px; }
+    .flip-card[data-correct="false"] .flip-back { background: rgba(248, 81, 73, 0.08); border-color: rgba(248, 81, 73, 0.3); box-shadow: 0 10px 30px rgba(248, 81, 73, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="false"] .b-title { color: #f85149; }
+    .flip-card[data-correct="false"] .b-title::after { content: 'Faux'; font-size: 0.8rem; padding: 2px 8px; background: rgba(248, 81, 73, 0.2); border-radius: 10px; }
+    .maison { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.10); border-left: 3px solid var(--c1); border-radius: 12px; padding: 18px 24px; margin-top: 22px; }
+    .maison-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c1); margin-bottom: 8px; opacity: 0.85; }
+    .maison-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .maison-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .prod { background: rgba(63,185,80,0.05); border: 1px solid rgba(63,185,80,0.18); border-left: 3px solid var(--c2); border-radius: 12px; padding: 18px 24px; margin-top: 18px; }
+    .prod-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c2); margin-bottom: 8px; opacity: 0.9; }
+    .prod-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .prod-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .lab { background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border: 1px solid var(--c1); border-radius: 24px; padding: 35px 40px; box-shadow: 0 0 60px rgba(0,0,0,0.3); }
+    .lab-badge { display: inline-block; padding: 4px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--c1); border-radius: 50px; color: var(--c1); font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+    .lab h3 { font-family: var(--font-display); font-style: italic; font-size: 1.7rem; margin: 0 0 18px; color: #fff; font-weight: 400; }
+    .lab-section { margin-top: 20px; }
+    .lab-section-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--c1); margin-bottom: 10px; opacity: 0.85; }
+    .code { font-family: var(--font-mono); background: rgba(0,0,0,0.5); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; font-size: 0.88rem; color: #c9d1d9; overflow-x: auto; white-space: pre; line-height: 1.55; }
+    .code .cmt { color: #6e7681; font-style: italic; }
+    .code .cmd { color: var(--c1); }
+    .code .key { color: #79c0ff; }
+    .code .val { color: #a5d6ff; }
+    .lab ol, .lab ul { margin: 0; padding-left: 20px; line-height: 1.7; color: #c9d1d9; font-size: 1rem; }
+    .lab li { margin-bottom: 8px; }
+    .lab p { color: #c9d1d9; line-height: 1.7; margin: 0 0 12px; font-size: 1rem; }
+    .next-mod { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; text-decoration: none; color: var(--c1); font-weight: 500; font-size: 0.95rem; padding: 10px 22px; border: 1px solid var(--c1); border-radius: 50px; background: rgba(255,255,255,0.03); transition: all 0.3s; }
+    .next-mod:hover { background: rgba(255,255,255,0.09); transform: translateX(4px); }
+    .nav { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 20px; background: rgba(13, 17, 23, 0.7); padding: 12px 30px; border-radius: 50px; border: 1px solid var(--line); backdrop-filter: blur(20px); z-index: 100; }
+    .btn { background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; transition: color 0.2s; padding: 0 10px; }
+    .btn:hover { color: #fff; }
+    .dots { display: flex; gap: 10px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); cursor: pointer; transition: all 0.3s; }
+    .dot.active { background: var(--c1); transform: scale(1.4); box-shadow: 0 0 10px var(--c1); }
+    .home { position: fixed; top: 25px; left: 25px; color: var(--muted); text-decoration: none; font-size: 0.85rem; padding: 8px 16px; border: 1px solid var(--line); border-radius: 50px; background: rgba(13,17,23,0.6); backdrop-filter: blur(10px); transition: all 0.3s; z-index: 100; }
+    .home:hover { color: #fff; border-color: var(--c1); }
+  </style>
+</head>
+<body>
+
+<a href="index.html" class="home">&larr; Sommaire</a>
+
+<div class="deck">
+  <div class="blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+
+  <!-- 1 -->
+  <div class="slide active" data-n="1">
+    <div class="content">
+      <span class="step-label">Étape 01 · Le problème</span>
+      <h1>Volumes & Stockage</h1>
+      <div class="panel">
+        <p>La couche d'écriture d'un conteneur est temporaire. Un redémarrage du conteneur, et tout ce qui a été écrit disparaît. Un pod déplacé sur un autre nœud repart d'une image vierge.</p>
+        <p>Un <strong>volume</strong> est un répertoire rendu disponible aux conteneurs d'un pod. Sa propriété essentielle : il est attaché au <strong>pod</strong>, pas au conteneur. Il survit donc au redémarrage d'un conteneur, et il peut être monté par plusieurs conteneurs du même pod.</p>
+        <p>Reste la question suivante, qui occupe la seconde moitié de ce module : que se passe-t-il quand le <em>pod</em> disparaît ? La réponse dépend entièrement du type de volume choisi.</p>
+      </div>
+      <div class="maison"><span class="maison-lbl">Trois durées de vie</span><div class="maison-txt">Celle du <em>conteneur</em> (la couche d'écriture), celle du <em>pod</em> (un emptyDir), celle du <em>cluster</em> et au-delà (un PersistentVolume). Choisir un volume, c'est d'abord choisir laquelle de ces trois durées convient.</div></div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="slide" data-n="2">
+    <div class="content">
+      <span class="step-label">Étape 02 · La syntaxe</span>
+      <h2>Spécification d'un Volume</h2>
+      <div class="panel"><p>Toujours deux blocs, à ne pas confondre. Le pod <strong>déclare</strong> les volumes dont il dispose. Chaque conteneur <strong>monte</strong> ceux dont il a besoin, à l'emplacement qui lui convient.</p></div>
+      <div class="code" style="margin-top:22px;"><span class="key">spec</span>:
+  <span class="key">containers</span>:
+  - <span class="key">name</span>: <span class="val">application</span>
+    <span class="key">image</span>: <span class="val">nginx:1.27</span>
+    <span class="key">volumeMounts</span>:              <span class="cmt"># cote conteneur : ou le voir</span>
+    - <span class="key">name</span>: <span class="val">donnees</span>
+      <span class="key">mountPath</span>: <span class="val">/usr/share/nginx/html</span>
+      <span class="key">readOnly</span>: <span class="val">true</span>
+  <span class="key">volumes</span>:                     <span class="cmt"># cote pod : ce que c'est</span>
+  - <span class="key">name</span>: <span class="val">donnees</span>
+    <span class="key">emptyDir</span>: {}</div>
+      <div class="panel" style="margin-top:22px;">
+        <p>Deux détails qui font gagner du temps. Le montage <strong>masque</strong> le contenu existant du répertoire cible, exactement comme un montage Unix classique : monter un volume vide sur <em>/etc</em> rend le conteneur inutilisable. Et l'attribut <strong>subPath</strong> permet de ne monter qu'un fichier précis, sans écraser tout le répertoire, ce qui est indispensable pour injecter un seul fichier de configuration.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="slide" data-n="3">
+    <div class="content">
+      <span class="step-label">Étape 03 · Le catalogue</span>
+      <h2>Types de Volumes</h2>
+      <div class="grid-3" style="margin-top:6px;">
+        <div class="mini-card"><h3>emptyDir</h3><p>Un répertoire vide créé au démarrage du pod, détruit avec lui. Idéal pour un cache ou un échange entre conteneurs du même pod.</p><span class="mini-tag">vie du pod</span></div>
+        <div class="mini-card"><h3>hostPath</h3><p>Un répertoire du nœud, monté dans le pod. Utile pour les agents système, dangereux pour les applications.</p><span class="mini-tag">lié au nœud</span></div>
+        <div class="mini-card"><h3>configMap, secret</h3><p>Des données de l'API projetées en fichiers. Traités au module 10.</p><span class="mini-tag">configuration</span></div>
+        <div class="mini-card"><h3>persistentVolumeClaim</h3><p>Une demande de stockage durable, satisfaite par le cluster. La forme normale en production.</p><span class="mini-tag">durable</span></div>
+        <div class="mini-card"><h3>nfs, iscsi</h3><p>Un partage réseau existant, monté directement. Simple, mais l'adresse du serveur se retrouve figée dans le manifeste.</p><span class="mini-tag">réseau</span></div>
+        <div class="mini-card"><h3>csi</h3><p>L'interface standard des fournisseurs de stockage. Tout pilote moderne passe par là.</p><span class="mini-tag">extensible</span></div>
+      </div>
+      <div class="prod"><span class="prod-lbl">Le piège hostPath</span><div class="prod-txt">Sur notre cluster à un nœud, <em>hostPath</em> semble parfait : les données survivent au pod et se retrouvent toujours. Sur un vrai cluster, le pod peut renaître sur un autre nœud et découvrir un répertoire vide, sans aucune erreur visible. C'est en plus une faille de sécurité majeure : monter <em>/</em> du nœud donne accès à ses secrets et à son runtime. À réserver aux agents d'infrastructure, jamais aux applications.</div></div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="slide" data-n="4">
+    <div class="content">
+      <span class="step-label">Étape 04 · La séparation</span>
+      <h2>PersistentVolume & Claim</h2>
+      <div class="panel">
+        <p>Kubernetes sépare deux métiers. L'administrateur fournit du stockage, l'utilisateur en demande. Ni l'un ni l'autre n'a besoin de connaître le travail de l'autre.</p>
+        <ul>
+          <li>Le <strong>PersistentVolume</strong> est une ressource du cluster, comme un nœud. Il décrit un volume réel : sa taille, ses modes d'accès, son emplacement, sa classe.</li>
+          <li>Le <strong>PersistentVolumeClaim</strong> est une demande faite dans un namespace : je veux 5 Gio accessibles en écriture. Le cluster cherche un PV compatible et les associe. L'état passe alors à <em>Bound</em>.</li>
+          <li>Le pod ne référence <strong>que le claim</strong>, jamais le volume. C'est ce qui rend le manifeste portable d'un cluster à l'autre.</li>
+        </ul>
+      </div>
+      <div class="code" style="margin-top:22px;"><span class="cmt">Les trois modes d'acces</span>
+ReadWriteOnce (RWO)   <span class="cmt"># monte en ecriture par un seul noeud</span>
+ReadOnlyMany  (ROX)   <span class="cmt"># lecture seule par plusieurs noeuds</span>
+ReadWriteMany (RWX)   <span class="cmt"># ecriture par plusieurs noeuds, exige NFS ou equivalent</span>
+
+<span class="cmt">Que devient le volume quand le claim est supprime ?</span>
+persistentVolumeReclaimPolicy: Delete   <span class="cmt"># le stockage reel est detruit</span>
+persistentVolumeReclaimPolicy: Retain   <span class="cmt"># conserve, a liberer a la main</span></div>
+      <div class="maison"><span class="maison-lbl">Le piège du mode d'accès</span><div class="maison-txt">RWO est le mode le plus courant et il autorise <em>un seul nœud</em> en écriture. Un Deployment à trois exemplaires répartis sur trois nœuds avec un volume RWO laissera deux pods bloqués indéfiniment en <em>ContainerCreating</em>. Le stockage partagé en écriture exige un système de fichiers réseau.</div></div>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="slide" data-n="5">
+    <div class="content">
+      <span class="step-label">Étape 05 · Automatisation</span>
+      <h2>StorageClass & Provisionnement Dynamique</h2>
+      <div class="panel">
+        <p>Créer un PersistentVolume à la main pour chaque demande ne passe pas l'échelle. La <strong>StorageClass</strong> décrit un <em>type</em> de stockage et le pilote capable de le fabriquer à la demande.</p>
+        <p>Le mécanisme est alors entièrement automatique : un claim mentionne une classe, le contrôleur associé crée le volume réel chez le fournisseur, fabrique l'objet PersistentVolume correspondant et l'associe au claim. Aucune intervention humaine.</p>
+        <p>Un cluster désigne généralement une <strong>classe par défaut</strong>, utilisée par tout claim qui n'en précise aucune. Sur notre installation, elle s'appelle <em>standard</em> et stocke les données dans un répertoire du nœud.</p>
+      </div>
+      <div class="code" style="margin-top:22px;"><span class="key">apiVersion</span>: <span class="val">v1</span>
+<span class="key">kind</span>: <span class="val">PersistentVolumeClaim</span>
+<span class="key">metadata</span>: { <span class="key">name</span>: <span class="val">donnees-pvc</span> }
+<span class="key">spec</span>:
+  <span class="key">accessModes</span>: [<span class="val">ReadWriteOnce</span>]
+  <span class="key">storageClassName</span>: <span class="val">standard</span>   <span class="cmt"># omis = classe par defaut du cluster</span>
+  <span class="key">resources</span>:
+    <span class="key">requests</span>: { <span class="key">storage</span>: <span class="val">1Gi</span> }</div>
+      <div class="prod"><span class="prod-lbl">Sur le terrain</span><div class="prod-txt">Deux réglages de la StorageClass méritent votre attention. <em>volumeBindingMode: WaitForFirstConsumer</em> retarde la création du volume jusqu'à ce que l'ordonnanceur ait choisi un nœud, ce qui évite de créer un disque dans une zone où le pod ne pourra jamais aller. Et <em>allowVolumeExpansion: true</em> autorise l'agrandissement d'un volume existant, sans quoi il faudra migrer les données à la main.</div></div>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <div class="slide" data-n="6">
+    <div class="content">
+      <span class="step-label">Étape 06 · QCM</span>
+      <h2>Vérifiez vos Acquis</h2>
+      <div class="qcm-grid">
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 01</div><div class="q-text">Un volume emptyDir survit au redémarrage d'un conteneur mais pas à celui du pod.</div></div>
+            <div class="flip-back"><div class="b-title">Vie du pod</div><p>Le volume est attaché au pod. Un conteneur qui redémarre retrouve ses données, un pod recréé repart d'un répertoire vide.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 02</div><div class="q-text">Le pod doit référencer le PersistentVolume qu'il utilise.</div></div>
+            <div class="flip-back"><div class="b-title">Il référence le claim</div><p>Le pod ne connaît que le PersistentVolumeClaim. C'est ce qui rend le manifeste portable : le stockage réel change d'un cluster à l'autre, pas la demande.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 03</div><div class="q-text">Un volume ReadWriteOnce ne peut pas être monté en écriture par des pods de deux nœuds différents.</div></div>
+            <div class="flip-back"><div class="b-title">Un seul nœud</div><p>Les pods du second nœud restent bloqués au montage. L'écriture partagée entre nœuds exige un mode ReadWriteMany, donc un système de fichiers réseau.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 04</div><div class="q-text">hostPath est un bon moyen de rendre les données d'une application persistantes.</div></div>
+            <div class="flip-back"><div class="b-title">Faux ami</div><p>Les données sont liées à un nœud précis. Le pod recréé ailleurs trouve un répertoire vide, sans erreur. C'est en plus une faille de sécurité sérieuse.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7 -->
+  <div class="slide" data-n="7">
+    <div class="content">
+      <span class="step-label">Étape 07 · Atelier</span>
+      <h2>Atelier 9 : Faire Survivre des Données</h2>
+      <div class="lab">
+        <span class="lab-badge">Atelier 09 · 40 minutes</span>
+        <h3>emptyDir partagé, puis volume persistant provisionné automatiquement</h3>
+        <div class="lab-section">
+          <div class="lab-section-title">1. Un volume partagé entre deux conteneurs</div><div class="code"><span class="cmd">$</span> cd ~/k8s &amp;&amp; cat &gt; partage.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata: { name: partage }
+spec:
+  containers:
+  - name: ecrivain
+    image: busybox:1.36
+    command: ["sh","-c","while true; do date >> /data/journal; sleep 3; done"]
+    volumeMounts: [{ name: commun, mountPath: /data }]
+  - name: lecteur
+    image: busybox:1.36
+    command: ["sh","-c","sleep 3600"]
+    volumeMounts: [{ name: commun, mountPath: /data, readOnly: true }]
+  volumes: [{ name: commun, emptyDir: {} }]
+EOF
+<span class="cmd">$</span> kubectl apply -f partage.yaml
+<span class="cmd">$</span> kubectl exec partage -c lecteur -- tail -3 /data/journal
+<span class="cmt">Le volume survit au redemarrage d'un conteneur</span>
+<span class="cmd">$</span> kubectl exec partage -c ecrivain -- kill 1 ; sleep 10
+<span class="cmd">$</span> kubectl exec partage -c lecteur -- wc -l /data/journal</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">2. La classe de stockage disponible</div><div class="code"><span class="cmt">Notez la mention (default) : elle s'applique aux claims sans classe</span>
+<span class="cmd">$</span> kubectl get storageclass
+<span class="cmd">$</span> kubectl describe storageclass standard | head -8
+<span class="cmd">$</span> kubectl get pods -n kube-system | grep -i provisioner</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">3. Une demande de 1 Gio, servie automatiquement</div><div class="code"><span class="cmd">$</span> cat &gt; pvc.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: site-pvc }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests: { storage: 1Gi }
+EOF
+<span class="cmd">$</span> kubectl apply -f pvc.yaml
+<span class="cmt">Attendu : Bound, et un PV cree automatiquement</span>
+<span class="cmd">$</span> kubectl get pvc,pv</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">4. Un site web dont le contenu survit</div><div class="code"><span class="cmd">$</span> cat &gt; site.yaml &lt;&lt;'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: site }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: site } }
+  template:
+    metadata: { labels: { app: site } }
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.27
+        volumeMounts: [{ name: html, mountPath: /usr/share/nginx/html }]
+      volumes:
+      - name: html
+        persistentVolumeClaim: { claimName: site-pvc }
+EOF
+<span class="cmd">$</span> kubectl apply -f site.yaml
+<span class="cmd">$</span> POD=$(kubectl get pod -l app=site -o name)
+<span class="cmd">$</span> kubectl exec $POD -- sh -c 'echo "&lt;h1&gt;La saucisse persiste&lt;/h1&gt;" &gt; /usr/share/nginx/html/index.html'
+<span class="cmd">$</span> kubectl exec n1 -- curl -s http://$(kubectl get pod -l app=site -o jsonpath='{.items[0].status.podIP}')
+
+<span class="cmt">Le test decisif : on detruit le pod</span>
+<span class="cmd">$</span> kubectl delete $POD ; sleep 15
+<span class="cmt">Le nouveau pod retrouve la page</span>
+<span class="cmd">$</span> kubectl exec n1 -- curl -s http://$(kubectl get pod -l app=site -o jsonpath='{.items[0].status.podIP}')</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">Validation</div>
+          <p>Le second appel doit renvoyer la même page alors que le pod a changé de nom et d'adresse IP. Regardez enfin où les données se trouvent réellement : <em>minikube ssh -- sudo ls /tmp/hostpath-provisioner</em>. Conservez le PVC et le Deployment <em>site</em>, ils resserviront au module 15.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8 -->
+  <div class="slide" data-n="8">
+    <div class="content">
+      <span class="step-label">Étape 08 · Conclusion</span>
+      <h2>Récapitulatif du Module 9</h2>
+      <div class="panel"><ul>
+        <li><strong>Un volume est attaché au pod,</strong> pas au conteneur. Deux blocs à écrire : <em>volumes</em> côté pod, <em>volumeMounts</em> côté conteneur.</li>
+        <li><strong>emptyDir</strong> vit le temps du pod. <strong>hostPath</strong> est lié à un nœud, à réserver aux agents d'infrastructure.</li>
+        <li><strong>PV et PVC</strong> séparent la fourniture de la demande. Le pod ne référence que le claim, ce qui rend le manifeste portable.</li>
+        <li><strong>Modes d'accès :</strong> RWO limite l'écriture à un seul nœud, RWX exige un stockage réseau.</li>
+        <li><strong>StorageClass :</strong> provisionnement automatique, classe par défaut, extension de volume, liaison différée au premier consommateur.</li>
+      </ul></div>
+      <div class="maison"><span class="maison-lbl">Prochaine étape</span><div class="maison-txt">Les données sont sauvées. Reste la configuration, aujourd'hui figée dans les images et les manifestes. Le module 10 la sort du conteneur avec les ConfigMaps, et traite séparément le cas des mots de passe avec les Secrets.</div></div>
+      <a href="module-10.html" class="next-mod">Module 10 : ConfigMaps & Secrets ></a>
+    </div>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="btn" onclick="navSlide(-1)">&lsaquo;</button>
+  <div class="dots" id="dots"></div>
+  <button class="btn" onclick="navSlide(1)">&rsaquo;</button>
+</div>
+
+<script>
+  let cur = 1;
+  const total = 8;
+  const dotsContainer = document.getElementById('dots');
+  for(let i=1; i<=total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 1 ? ' active' : '');
+    dot.onclick = () => goToSlide(i);
+    dotsContainer.appendChild(dot);
+  }
+  function navSlide(dir) { goToSlide(cur + dir); }
+  function goToSlide(n) {
+    if(n < 1 || n > total) return;
+    cur = n;
+    document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+    document.querySelector(`.slide[data-n="${cur}"]`).classList.add('active');
+    document.querySelectorAll('.dot').forEach((d, i) => { d.classList.toggle('active', i + 1 === cur); });
+  }
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowRight') navSlide(1);
+    if(e.key === 'ArrowLeft') navSlide(-1);
+  });
+</script>
+</body>
+</html>

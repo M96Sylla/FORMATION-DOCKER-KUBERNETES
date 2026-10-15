@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 7 &middot; Concevoir pour Kubernetes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117; --txt: #e6edf3; --muted: #8b949e;
+      --line: rgba(255, 255, 255, 0.1); --panel: rgba(255, 255, 255, 0.04);
+      --c1: #79c0ff; --c2: #3fb950;
+      --font-display: 'Instrument Serif', Georgia, serif; --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--font-body); background: var(--bg); color: var(--txt); overflow: hidden; height: 100vh; }
+    .deck { width: 100vw; height: 100vh; position: relative; }
+    .slide { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transform: scale(0.97) translateY(20px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
+    .slide.active { opacity: 1; transform: scale(1) translateY(0); pointer-events: all; z-index: 10; }
+    .blobs { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.15; }
+    .blob-1 { top: -10%; right: -5%; width: 500px; height: 500px; background: var(--c1); }
+    .blob-2 { bottom: -10%; left: -5%; width: 400px; height: 400px; background: var(--c2); }
+    .content { position: relative; z-index: 2; width: 100%; max-width: 1100px; padding: 40px; max-height: 85vh; overflow-y: auto; }
+    .content::-webkit-scrollbar { width: 6px; }
+    .content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    .step-label { font-weight: 700; text-transform: uppercase; letter-spacing: 3px; color: var(--c1); font-size: 0.75rem; margin-bottom: 16px; display: block; opacity: 0.8; }
+    h1 { font-family: var(--font-display); font-size: clamp(3.5rem, 5vw, 4.5rem); font-style: italic; line-height: 1.05; margin: 0 0 30px; background: linear-gradient(135deg, #fff, var(--c1)); -webkit-background-clip: text; color: transparent; }
+    h2 { font-family: var(--font-display); font-size: clamp(2.5rem, 4vw, 3.2rem); font-style: italic; margin: 0 0 24px; color: #fff; font-weight: 400; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 35px 40px; line-height: 1.8; font-size: 1.1rem; color: #c9d1d9; backdrop-filter: blur(12px); box-shadow: 0 25px 50px rgba(0,0,0,0.2); }
+    .panel p { margin: 0 0 20px; } .panel p:last-child { margin-bottom: 0; }
+    .panel strong { color: #fff; font-weight: 500; }
+    .panel ul { margin: 0; padding-left: 20px; } .panel li { margin-bottom: 12px; }
+    .panel em { color: var(--c1); font-style: normal; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .mini-card { padding: 22px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 16px; }
+    .mini-card h3 { margin: 0 0 10px; font-size: 1.05rem; color: #fff; font-weight: 500; }
+    .mini-card p { margin: 0; font-size: 0.92rem; color: var(--muted); line-height: 1.6; }
+    .mini-card .mini-num { font-family: var(--font-display); font-style: italic; font-size: 2rem; color: var(--c1); line-height: 1; margin-bottom: 8px; }
+    .mini-card .mini-tag { font-family: var(--font-mono); font-size: 0.78rem; color: var(--c2); display: block; margin-top: 8px; }
+    .qcm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px; }
+    .flip-card { perspective: 1200px; height: 200px; cursor: pointer; }
+    .flip-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1); transform-style: preserve-3d; border-radius: 20px; }
+    .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
+    .flip-front, .flip-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; padding: 25px; display: flex; flex-direction: column; justify-content: center; backdrop-filter: blur(10px); }
+    .flip-front { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); transition: background 0.3s, border-color 0.3s; }
+    .flip-front:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.2); }
+    .q-num { font-size: 0.8rem; font-weight: 700; color: var(--c1); margin-bottom: 10px; letter-spacing: 1px; }
+    .q-text { font-size: 1.05rem; font-weight: 500; color: #fff; line-height: 1.5; }
+    .flip-back { transform: rotateY(180deg); font-size: 0.95rem; line-height: 1.6; border: 1px solid transparent; }
+    .b-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+    .flip-card[data-correct="true"] .flip-back { background: rgba(63, 185, 80, 0.08); border-color: rgba(63, 185, 80, 0.3); box-shadow: 0 10px 30px rgba(63, 185, 80, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="true"] .b-title { color: #3fb950; }
+    .flip-card[data-correct="true"] .b-title::after { content: 'Vrai'; font-size: 0.8rem; padding: 2px 8px; background: rgba(63, 185, 80, 0.2); border-radius: 10px; }
+    .flip-card[data-correct="false"] .flip-back { background: rgba(248, 81, 73, 0.08); border-color: rgba(248, 81, 73, 0.3); box-shadow: 0 10px 30px rgba(248, 81, 73, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="false"] .b-title { color: #f85149; }
+    .flip-card[data-correct="false"] .b-title::after { content: 'Faux'; font-size: 0.8rem; padding: 2px 8px; background: rgba(248, 81, 73, 0.2); border-radius: 10px; }
+    .maison { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.10); border-left: 3px solid var(--c1); border-radius: 12px; padding: 18px 24px; margin-top: 22px; }
+    .maison-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c1); margin-bottom: 8px; opacity: 0.85; }
+    .maison-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .maison-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .prod { background: rgba(63,185,80,0.05); border: 1px solid rgba(63,185,80,0.18); border-left: 3px solid var(--c2); border-radius: 12px; padding: 18px 24px; margin-top: 18px; }
+    .prod-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c2); margin-bottom: 8px; opacity: 0.9; }
+    .prod-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .prod-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .lab { background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border: 1px solid var(--c1); border-radius: 24px; padding: 35px 40px; box-shadow: 0 0 60px rgba(0,0,0,0.3); }
+    .lab-badge { display: inline-block; padding: 4px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--c1); border-radius: 50px; color: var(--c1); font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+    .lab h3 { font-family: var(--font-display); font-style: italic; font-size: 1.7rem; margin: 0 0 18px; color: #fff; font-weight: 400; }
+    .lab-section { margin-top: 20px; }
+    .lab-section-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--c1); margin-bottom: 10px; opacity: 0.85; }
+    .code { font-family: var(--font-mono); background: rgba(0,0,0,0.5); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; font-size: 0.88rem; color: #c9d1d9; overflow-x: auto; white-space: pre; line-height: 1.55; }
+    .code .cmt { color: #6e7681; font-style: italic; }
+    .code .cmd { color: var(--c1); }
+    .code .key { color: #79c0ff; }
+    .code .val { color: #a5d6ff; }
+    .lab ol, .lab ul { margin: 0; padding-left: 20px; line-height: 1.7; color: #c9d1d9; font-size: 1rem; }
+    .lab li { margin-bottom: 8px; }
+    .lab p { color: #c9d1d9; line-height: 1.7; margin: 0 0 12px; font-size: 1rem; }
+    .next-mod { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; text-decoration: none; color: var(--c1); font-weight: 500; font-size: 0.95rem; padding: 10px 22px; border: 1px solid var(--c1); border-radius: 50px; background: rgba(255,255,255,0.03); transition: all 0.3s; }
+    .next-mod:hover { background: rgba(255,255,255,0.09); transform: translateX(4px); }
+    .nav { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 20px; background: rgba(13, 17, 23, 0.7); padding: 12px 30px; border-radius: 50px; border: 1px solid var(--line); backdrop-filter: blur(20px); z-index: 100; }
+    .btn { background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; transition: color 0.2s; padding: 0 10px; }
+    .btn:hover { color: #fff; }
+    .dots { display: flex; gap: 10px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); cursor: pointer; transition: all 0.3s; }
+    .dot.active { background: var(--c1); transform: scale(1.4); box-shadow: 0 0 10px var(--c1); }
+    .home { position: fixed; top: 25px; left: 25px; color: var(--muted); text-decoration: none; font-size: 0.85rem; padding: 8px 16px; border: 1px solid var(--line); border-radius: 50px; background: rgba(13,17,23,0.6); backdrop-filter: blur(10px); transition: all 0.3s; z-index: 100; }
+    .home:hover { color: #fff; border-color: var(--c1); }
+  </style>
+</head>
+<body>
+
+<a href="index.html" class="home">&larr; Sommaire</a>
+
+<div class="deck">
+  <div class="blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+
+  <!-- 1 -->
+  <div class="slide active" data-n="1">
+    <div class="content">
+      <span class="step-label">Étape 01 · Le changement de modèle</span>
+      <h1>Concevoir pour Kubernetes</h1>
+      <div class="panel">
+        <p>Une application traditionnelle suppose un serveur qu'elle connaît : une adresse IP fixe, un disque local, un fichier de configuration à un chemin donné, un redémarrage rare et annoncé. Elle a été écrite pour un environnement <strong>stable et nommé</strong>.</p>
+        <p>Kubernetes offre l'inverse. Un pod peut être déplacé, redémarré ou détruit à tout instant, par une mise à jour, une éviction, une panne de nœud ou une décision de l'ordonnanceur. Son adresse change, son disque local disparaît, ses voisins apparaissent et disparaissent.</p>
+        <p>Déployer une application traditionnelle sur Kubernetes sans l'adapter fonctionne souvent en démonstration, et échoue toujours en production. Ce module traite des adaptations à faire, et de leur coût.</p>
+      </div>
+      <div class="maison"><span class="maison-lbl">La bonne question</span><div class="maison-txt">Pas « comment mettre cette application dans un conteneur », mais « que se passe-t-il si je tue ce pod maintenant, <em>pendant une transaction</em> ». Si la réponse est incertaine, la conception n'est pas terminée.</div></div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="slide" data-n="2">
+    <div class="content">
+      <span class="step-label">Étape 02 · Découplage</span>
+      <h2>Ressources Découplées</h2>
+      <div class="panel"><p>Le découplage consiste à sortir du conteneur tout ce qui ne peut pas être jetable. Quatre séparations à opérer, dans cet ordre.</p></div>
+      <div class="grid" style="margin-top:24px;">
+        <div class="mini-card"><div class="mini-num">01</div><h3>L'état hors du processus</h3><p>Sessions, fichiers téléversés, caches. Vers une base, un cache partagé ou un volume persistant (module 9). Un pod ne doit rien détenir d'unique.</p></div>
+        <div class="mini-card"><div class="mini-num">02</div><h3>La configuration hors de l'image</h3><p>Variables d'environnement et fichiers montés, fournis par des ConfigMaps et des Secrets (module 10). Une même image doit tourner en recette et en production.</p></div>
+        <div class="mini-card"><div class="mini-num">03</div><h3>L'adressage hors du code</h3><p>On appelle un nom de Service, jamais une adresse IP. Le DNS interne et la répartition de charge font le reste (module 14).</p></div>
+        <div class="mini-card"><div class="mini-num">04</div><h3>Les journaux hors du disque</h3><p>Sortie standard uniquement. La collecte, l'agrégation et la conservation sont des services du cluster, pas de l'application (module 16).</p></div>
+      </div>
+      <div class="prod"><span class="prod-lbl">Sur le terrain</span><div class="prod-txt">Le découplage n'est pas toujours possible. Une application à état fort, qui exige une identité stable et un disque attaché, se déploie en <em>StatefulSet</em> plutôt qu'en Deployment : nom prévisible, volume propre à chaque exemplaire, démarrage et arrêt ordonnés. C'est plus contraignant, et c'est parfois la seule option honnête.</div></div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="slide" data-n="3">
+    <div class="content">
+      <span class="step-label">Étape 03 · Fugacité</span>
+      <h2>Tout est Éphémère</h2>
+      <div class="panel">
+        <p>La destruction d'un pod n'est pas un incident, c'est un mode de fonctionnement normal. Elle survient à chaque mise à jour, à chaque réduction d'échelle, à chaque manque de mémoire sur un nœud, à chaque opération de maintenance.</p>
+        <p>Le déroulé de l'arrêt mérite d'être connu précisément, car deux actions se produisent <strong>en parallèle</strong> :</p>
+        <ul>
+          <li>Le pod est retiré des destinataires du Service, il ne reçoit donc plus de nouvelles requêtes.</li>
+          <li>Le conteneur reçoit un <strong>SIGTERM</strong>, puis dispose de <em>terminationGracePeriodSeconds</em> (30 secondes par défaut) pour finir son travail. Passé ce délai, c'est un SIGKILL sans discussion.</li>
+        </ul>
+        <p>Ces deux opérations n'étant pas synchronisées, quelques requêtes peuvent arriver après le SIGTERM. D'où l'usage courant d'un court <em>preStop</em> de deux à cinq secondes, qui laisse le temps aux règles réseau de se propager avant le début de l'arrêt.</p>
+      </div>
+      <div class="maison"><span class="maison-lbl">Ce que l'application doit savoir faire</span><div class="maison-txt">Intercepter SIGTERM, cesser d'accepter de nouvelles connexions, terminer celles en cours, fermer proprement ses ressources, puis sortir avec le code 0. Une application qui ignore SIGTERM coupe des requêtes utilisateur à <em>chaque</em> déploiement.</div></div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="slide" data-n="4">
+    <div class="content">
+      <span class="step-label">Étape 04 · Souplesse</span>
+      <h2>Un Cadre Flexible</h2>
+      <div class="panel">
+        <p>Découper une application en services indépendants permet de les mettre à l'échelle et de les mettre à jour séparément. Le prix à payer est un réseau entre les composants, avec ce que cela implique.</p>
+        <ul>
+          <li><strong>Aucun ordre de démarrage n'est garanti.</strong> Kubernetes lance tout en même temps. Un service qui exige que sa base soit déjà là doit réessayer, pas échouer. Un conteneur d'initialisation peut aussi bloquer le démarrage jusqu'à ce que la dépendance réponde.</li>
+          <li><strong>Toute opération distante peut échouer.</strong> Réessais avec temporisation croissante, délais d'expiration explicites, et disjoncteur au-delà d'un certain seuil d'échecs.</li>
+          <li><strong>Les traitements doivent être idempotents.</strong> Un pod tué en cours de route sera relancé, et la même requête pourra être traitée deux fois.</li>
+          <li><strong>Le découpage a un coût.</strong> Trois services au lieu d'un, c'est trois fois plus de déploiements, de journaux, de latences réseau et de causes de panne. Ne découpez que ce qui a une vraie raison d'évoluer séparément.</li>
+        </ul>
+      </div>
+      <div class="prod"><span class="prod-lbl">Sur le terrain</span><div class="prod-txt">Le <em>PodDisruptionBudget</em> est l'objet qui protège vos applications pendant les opérations volontaires. Il déclare, par exemple, qu'au moins deux exemplaires doivent rester disponibles. Une vidange de nœud (<em>kubectl drain</em>) le respecte et attend. Sans lui, une maintenance peut arrêter simultanément tous vos exemplaires.</div></div>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="slide" data-n="5">
+    <div class="content">
+      <span class="step-label">Étape 05 · Ressources</span>
+      <h2>Requests & Limits</h2>
+      <div class="panel">
+        <p>Deux valeurs, deux effets complètement différents. La <strong>requête</strong> est ce que l'ordonnanceur réserve : elle décide du placement et n'a aucun effet à l'exécution. La <strong>limite</strong> est ce que le noyau fait respecter : elle n'a aucun effet sur le placement.</p>
+      </div>
+      <div class="code" style="margin-top:22px;"><span class="key">resources</span>:
+  <span class="key">requests</span>: { <span class="key">cpu</span>: <span class="val">"100m"</span>, <span class="key">memory</span>: <span class="val">"128Mi"</span> }   <span class="cmt"># reserve pour l'ordonnancement</span>
+  <span class="key">limits</span>:   { <span class="key">cpu</span>: <span class="val">"500m"</span>, <span class="key">memory</span>: <span class="val">"256Mi"</span> }   <span class="cmt"># plafond applique par le noyau</span></div>
+      <div class="grid" style="margin-top:24px;">
+        <div class="mini-card"><h3>Le CPU est compressible</h3><p>Une unité vaut un vCPU, <em>100m</em> vaut un dixième de vCPU. Dépasser la limite ne tue rien : le processus est <strong>ralenti</strong> par le noyau. Symptôme : des latences inexpliquées, jamais un redémarrage.</p></div>
+        <div class="mini-card"><h3>La mémoire ne l'est pas</h3><p>On ne ralentit pas une allocation. Dépasser la limite mémoire fait tuer le conteneur par le noyau : c'est l'<strong>OOMKilled</strong>, code de sortie 137, suivi d'un redémarrage.</p></div>
+      </div>
+      <div class="prod"><span class="prod-lbl">Lire 100m et 128Mi</span><div class="prod-txt"><em>Le CPU.</em> 1000m vaut un vCPU, c'est-à-dire un hyperthread et non un cœur physique : la nuance a son importance sur une facture cloud. 500m est donc un demi-vCPU, 100m un dixième. Vous pouvez saisir 0.5, la valeur vous sera toujours réaffichée en 500m : le type <em>Quantity</em> est une représentation en virgule fixe dont la forme canonique pour le CPU est le milli, avec 1m comme plus petite valeur possible.<br><br><em>La mémoire.</em> Mi est le méga binaire (1024 × 1024 octets), M le méga décimal (1 000 000). Les deux sont parfaitement valides. Si l'on écrit Mi par convention, c'est parce que c'est l'unité dans laquelle les nœuds annoncent leur capacité, en Ki dans <em>kubectl describe node</em>, et surtout parce que M ressemble à Mi tout en valant 6,4 % de moins : 128M font environ 122Mi. Sur une limite serrée, cet écart se paie en OOMKill.<br><br><em>Le piège.</em> Le m minuscule veut dire milli, y compris sur la mémoire. <em>memory: 500m</em> demande un demi-octet, arrondi à 1, accepté sans broncher, et le pod meurt à la première allocation.<br><br><em>Et ces valeurs, d'où sortent-elles ?</em> De la documentation de Kubernetes, recopiées de tutoriel en tutoriel depuis des années. Aucun raisonnement technique derrière 100m ni derrière 128Mi. La bonne valeur ne se devine pas, elle se mesure : on regarde ce que le conteneur consomme réellement.</div></div>
+      <div class="maison"><span class="maison-lbl">Les trois classes de qualité de service</span><div class="maison-txt"><em>Guaranteed</em> : requêtes et limites identiques partout, la classe la mieux protégée. <em>Burstable</em> : requêtes définies, limites supérieures. <em>BestEffort</em> : rien de déclaré. Quand un nœud manque de mémoire, l'éviction commence par les BestEffort, puis les Burstable qui dépassent leur requête. Ne rien déclarer, c'est se porter volontaire pour être expulsé en premier.</div></div>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <div class="slide" data-n="6">
+    <div class="content">
+      <span class="step-label">Étape 06 · Garde-fous</span>
+      <h2>Quotas & Valeurs par Défaut</h2>
+      <div class="panel"><p>Les requêtes et limites sont déclarées par les équipes, donc oubliées ou sous-évaluées. Deux objets, posés par l'administrateur au niveau du namespace, rétablissent le contrôle.</p></div>
+      <div class="grid" style="margin-top:24px;">
+        <div class="mini-card"><h3>LimitRange</h3><p>Applique des valeurs <strong>par défaut</strong> aux conteneurs qui n'en déclarent pas, et impose un minimum et un maximum. Il agit à l'admission, conteneur par conteneur.</p><span class="mini-tag">par conteneur</span></div>
+        <div class="mini-card"><h3>ResourceQuota</h3><p>Plafonne la <strong>somme</strong> consommée par le namespace : total des CPU et de la mémoire demandés, mais aussi nombre de pods, de services ou de volumes.</p><span class="mini-tag">par namespace</span></div>
+      </div>
+      <div class="code" style="margin-top:22px;"><span class="key">kind</span>: <span class="val">ResourceQuota</span>
+<span class="key">spec</span>:
+  <span class="key">hard</span>:
+    <span class="key">requests.cpu</span>: <span class="val">"2"</span>
+    <span class="key">requests.memory</span>: <span class="val">4Gi</span>
+    <span class="key">limits.memory</span>: <span class="val">8Gi</span>
+    <span class="key">pods</span>: <span class="val">"20"</span>
+    <span class="key">persistentvolumeclaims</span>: <span class="val">"5"</span></div>
+      <div class="prod"><span class="prod-lbl">Sur le terrain</span><div class="prod-txt">Dès qu'un ResourceQuota portant sur les CPU ou la mémoire existe dans un namespace, <em>tout</em> conteneur créé doit déclarer les valeurs correspondantes, sinon il est refusé à l'admission. C'est la raison d'être du LimitRange : il fournit les valeurs par défaut et évite de casser tous les déploiements existants le jour où le quota est posé.</div></div>
+    </div>
+  </div>
+
+  <!-- 7 -->
+  <div class="slide" data-n="7">
+    <div class="content">
+      <span class="step-label">Étape 07 · Synthèse</span>
+      <h2>Points à Considérer</h2>
+      <div class="panel"><p>La liste de contrôle à passer avant de déclarer une application prête pour un cluster. Chaque point renvoie à un module de la formation.</p><ul>
+        <li><strong>Sans état,</strong> ou état explicitement confié à un volume ou un service externe.</li>
+        <li><strong>Configuration injectée,</strong> une seule image pour tous les environnements.</li>
+        <li><strong>Arrêt propre sur SIGTERM,</strong> dans le délai de grâce, sans couper de requête en cours.</li>
+        <li><strong>Points de santé distincts</strong> pour la readiness et la liveness, honnêtes tous les deux.</li>
+        <li><strong>Requêtes et limites déclarées</strong> pour chaque conteneur, sur le CPU et la mémoire.</li>
+        <li><strong>Journaux sur la sortie standard,</strong> structurés si possible, sans écriture de fichier.</li>
+        <li><strong>Utilisateur non privilégié,</strong> système de fichiers en lecture seule quand c'est possible.</li>
+        <li><strong>Opérations idempotentes et réessayables,</strong> sans hypothèse sur l'ordre de démarrage.</li>
+      </ul></div>
+      <div class="maison"><span class="maison-lbl">Le test décisif</span><div class="maison-txt">Supprimez un pod au hasard en pleine journée. Si personne ne s'en aperçoit, la conception est bonne. Si vous n'osez pas le faire, vous savez déjà où sont les faiblesses.</div></div>
+    </div>
+  </div>
+
+  <!-- 8 -->
+  <div class="slide" data-n="8">
+    <div class="content">
+      <span class="step-label">Étape 08 · QCM</span>
+      <h2>Vérifiez vos Acquis</h2>
+      <div class="qcm-grid">
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 01</div><div class="q-text">Un conteneur qui dépasse sa limite CPU est redémarré.</div></div>
+            <div class="flip-back"><div class="b-title">Il est ralenti</div><p>Le CPU est une ressource compressible : le noyau limite le temps d'exécution. Le symptôme est une latence, pas un redémarrage. Seule la mémoire provoque un OOMKilled.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 02</div><div class="q-text">La requête sert au placement, la limite s'applique à l'exécution.</div></div>
+            <div class="flip-back"><div class="b-title">Deux rôles disjoints</div><p>L'ordonnanceur ne regarde que les requêtes pour choisir un nœud. Le noyau ne fait respecter que les limites. Une requête très inférieure à l'usage réel produit des nœuds surchargés.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 03</div><div class="q-text">Un pod sans requests ni limits est le premier expulsé quand le nœud manque de mémoire.</div></div>
+            <div class="flip-back"><div class="b-title">Classe BestEffort</div><p>L'éviction commence par les BestEffort, puis les Burstable au-delà de leur requête. Les Guaranteed sont les derniers touchés.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 04</div><div class="q-text">Écrire <em>memory: 500m</em> demande 500 mégaoctets au conteneur.</div></div>
+            <div class="flip-back"><div class="b-title">Un demi-octet</div><p>Le <em>m</em> minuscule signifie milli. La valeur est acceptée sans erreur, et le conteneur est tué dès sa première allocation. Il fallait écrire 500Mi, soit 500 mébioctets.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9 -->
+  <div class="slide" data-n="9">
+    <div class="content">
+      <span class="step-label">Étape 09 · Atelier</span>
+      <h2>Atelier 7 : Ressources et Garde-fous</h2>
+      <div class="lab">
+        <span class="lab-badge">Atelier 07 · 35 minutes</span>
+        <h3>Observer les classes de service, provoquer un OOMKilled, poser un quota</h3>
+        <div class="lab-section">
+          <div class="lab-section-title">1. Un namespace de travail avec ses garde-fous</div><div class="code"><span class="cmd">$</span> kubectl create namespace saucisse
+<span class="cmd">$</span> cat &gt; garde-fous.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: LimitRange
+metadata: { name: defauts, namespace: saucisse }
+spec:
+  limits:
+  - type: Container
+    default:        { cpu: "300m", memory: "256Mi" }
+    defaultRequest: { cpu: "100m", memory: "128Mi" }
+    max:            { cpu: "1",    memory: "512Mi" }
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata: { name: plafond, namespace: saucisse }
+spec:
+  hard:
+    requests.cpu: "1"
+    requests.memory: 1Gi
+    pods: "10"
+EOF
+<span class="cmd">$</span> kubectl apply -f garde-fous.yaml</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">2. Les valeurs par défaut s'appliquent toutes seules</div><div class="code"><span class="cmd">$</span> kubectl -n saucisse run sans-rien --image=nginx:1.27
+<span class="cmt">Le pod n'a rien declare, le LimitRange a rempli les champs</span>
+<span class="cmd">$</span> kubectl -n saucisse get pod sans-rien -o jsonpath='{.spec.containers[0].resources}{"\n"}'
+<span class="cmt">Classe de qualite de service attribuee</span>
+<span class="cmd">$</span> kubectl -n saucisse get pod sans-rien -o jsonpath='{.status.qosClass}{"\n"}'
+<span class="cmd">$</span> kubectl -n saucisse describe quota plafond</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">3. Dépasser la mémoire, volontairement</div><div class="code"><span class="cmd">$</span> cat &gt; gourmand.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata: { name: gourmand, namespace: saucisse }
+spec:
+  containers:
+  - name: stress
+    image: polinux/stress
+    command: ["stress"]
+    args: ["--vm","1","--vm-bytes","400M","--vm-hang","1"]
+    resources:
+      requests: { memory: "100Mi", cpu: "100m" }
+      limits:   { memory: "200Mi", cpu: "200m" }
+EOF
+<span class="cmd">$</span> kubectl apply -f gourmand.yaml
+<span class="cmt">Attendu : OOMKilled puis CrashLoopBackOff</span>
+<span class="cmd">$</span> kubectl -n saucisse get pod gourmand -w
+<span class="cmd">$</span> kubectl -n saucisse describe pod gourmand | grep -E 'Reason|Exit Code'</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">4. Le quota refuse à l'admission</div><div class="code"><span class="cmt">Demander plus que le plafond du namespace : le refus est immediat et explicite</span>
+<span class="cmd">$</span> kubectl -n saucisse run trop-gros --image=nginx:1.27 \
+    --overrides='{"spec":{"containers":[{"name":"c","image":"nginx:1.27",
+    "resources":{"requests":{"cpu":"900m","memory":"900Mi"}}}]}}'
+<span class="cmt">Lisez le message : il nomme la ressource, le demande et le disponible</span>
+<span class="cmd">$</span> kubectl -n saucisse describe quota plafond</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">Validation</div>
+          <p>Vous devez savoir montrer trois choses : les ressources injectées par le LimitRange dans un pod qui n'en déclarait aucune, le code de sortie 137 du pod <em>gourmand</em>, et le message de refus du quota. Conservez le namespace <em>saucisse</em>, il servira aux modules suivants.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10 -->
+  <div class="slide" data-n="10">
+    <div class="content">
+      <span class="step-label">Étape 10 · Conclusion</span>
+      <h2>Récapitulatif du Module 7</h2>
+      <div class="panel"><ul>
+        <li><strong>Découpler :</strong> l'état, la configuration, l'adressage et les journaux sortent du conteneur.</li>
+        <li><strong>Fugacité :</strong> retrait du trafic et SIGTERM en parallèle, délai de grâce de 30 secondes, puis SIGKILL. L'arrêt propre est à la charge de l'application.</li>
+        <li><strong>Cadre flexible :</strong> aucun ordre de démarrage, réessais obligatoires, opérations idempotentes, découpage justifié.</li>
+        <li><strong>Requêtes et limites :</strong> la requête place, la limite contraint. CPU ralenti, mémoire tuée à 137.</li>
+        <li><strong>Garde-fous :</strong> LimitRange pour les valeurs par défaut et les bornes, ResourceQuota pour le plafond du namespace.</li>
+      </ul></div>
+      <div class="maison"><span class="maison-lbl">Prochaine étape</span><div class="maison-txt">Un conteneur, un rôle. Mais certaines fonctions doivent absolument être collées à l'application : collecter ses journaux, adapter son format, gérer ses connexions sortantes. Le module 8 présente les trois patterns qui répondent à ces besoins, puis les traitements par lots.</div></div>
+      <a href="module-8.html" class="next-mod">Module 8 : Patterns & Jobs ></a>
+    </div>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="btn" onclick="navSlide(-1)">&lsaquo;</button>
+  <div class="dots" id="dots"></div>
+  <button class="btn" onclick="navSlide(1)">&rsaquo;</button>
+</div>
+
+<script>
+  let cur = 1;
+  const total = 10;
+  const dotsContainer = document.getElementById('dots');
+  for(let i=1; i<=total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 1 ? ' active' : '');
+    dot.onclick = () => goToSlide(i);
+    dotsContainer.appendChild(dot);
+  }
+  function navSlide(dir) { goToSlide(cur + dir); }
+  function goToSlide(n) {
+    if(n < 1 || n > total) return;
+    cur = n;
+    document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+    document.querySelector(`.slide[data-n="${cur}"]`).classList.add('active');
+    document.querySelectorAll('.dot').forEach((d, i) => { d.classList.toggle('active', i + 1 === cur); });
+  }
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowRight') navSlide(1);
+    if(e.key === 'ArrowLeft') navSlide(-1);
+  });
+</script>
+</body>
+</html>

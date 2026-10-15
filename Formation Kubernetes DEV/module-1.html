@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 1 &middot; Cadrage & Prise en Main</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117; --txt: #e6edf3; --muted: #8b949e;
+      --line: rgba(255, 255, 255, 0.1); --panel: rgba(255, 255, 255, 0.04);
+      --c1: #58a6ff; --c2: #3fb950;
+      --font-display: 'Instrument Serif', Georgia, serif; --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--font-body); background: var(--bg); color: var(--txt); overflow: hidden; height: 100vh; }
+    .deck { width: 100vw; height: 100vh; position: relative; }
+    .slide { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transform: scale(0.97) translateY(20px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
+    .slide.active { opacity: 1; transform: scale(1) translateY(0); pointer-events: all; z-index: 10; }
+    .blobs { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.15; }
+    .blob-1 { top: -10%; right: -5%; width: 500px; height: 500px; background: var(--c1); }
+    .blob-2 { bottom: -10%; left: -5%; width: 400px; height: 400px; background: var(--c2); }
+    .content { position: relative; z-index: 2; width: 100%; max-width: 1100px; padding: 40px; max-height: 85vh; overflow-y: auto; }
+    .content::-webkit-scrollbar { width: 6px; }
+    .content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    .step-label { font-weight: 700; text-transform: uppercase; letter-spacing: 3px; color: var(--c1); font-size: 0.75rem; margin-bottom: 16px; display: block; opacity: 0.8; }
+    h1 { font-family: var(--font-display); font-size: clamp(3.5rem, 5vw, 4.5rem); font-style: italic; line-height: 1.05; margin: 0 0 30px; background: linear-gradient(135deg, #fff, var(--c1)); -webkit-background-clip: text; color: transparent; }
+    h2 { font-family: var(--font-display); font-size: clamp(2.5rem, 4vw, 3.2rem); font-style: italic; margin: 0 0 24px; color: #fff; font-weight: 400; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 35px 40px; line-height: 1.8; font-size: 1.1rem; color: #c9d1d9; backdrop-filter: blur(12px); box-shadow: 0 25px 50px rgba(0,0,0,0.2); }
+    .panel p { margin: 0 0 20px; } .panel p:last-child { margin-bottom: 0; }
+    .panel strong { color: #fff; font-weight: 500; }
+    .panel ul { margin: 0; padding-left: 20px; } .panel li { margin-bottom: 12px; }
+    .panel em { color: var(--c1); font-style: normal; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .mini-card { padding: 22px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 16px; }
+    .mini-card h3 { margin: 0 0 10px; font-size: 1.05rem; color: #fff; font-weight: 500; }
+    .mini-card p { margin: 0; font-size: 0.92rem; color: var(--muted); line-height: 1.6; }
+    .mini-card .mini-num { font-family: var(--font-display); font-style: italic; font-size: 2rem; color: var(--c1); line-height: 1; margin-bottom: 8px; }
+    .mini-card .mini-tag { font-family: var(--font-mono); font-size: 0.78rem; color: var(--c2); display: block; margin-top: 8px; }
+    .qcm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px; }
+    .flip-card { perspective: 1200px; height: 200px; cursor: pointer; }
+    .flip-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1); transform-style: preserve-3d; border-radius: 20px; }
+    .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
+    .flip-front, .flip-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; padding: 25px; display: flex; flex-direction: column; justify-content: center; backdrop-filter: blur(10px); }
+    .flip-front { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); transition: background 0.3s, border-color 0.3s; }
+    .flip-front:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.2); }
+    .q-num { font-size: 0.8rem; font-weight: 700; color: var(--c1); margin-bottom: 10px; letter-spacing: 1px; }
+    .q-text { font-size: 1.05rem; font-weight: 500; color: #fff; line-height: 1.5; }
+    .flip-back { transform: rotateY(180deg); font-size: 0.95rem; line-height: 1.6; border: 1px solid transparent; }
+    .b-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+    .flip-card[data-correct="true"] .flip-back { background: rgba(63, 185, 80, 0.08); border-color: rgba(63, 185, 80, 0.3); box-shadow: 0 10px 30px rgba(63, 185, 80, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="true"] .b-title { color: #3fb950; }
+    .flip-card[data-correct="true"] .b-title::after { content: 'Vrai'; font-size: 0.8rem; padding: 2px 8px; background: rgba(63, 185, 80, 0.2); border-radius: 10px; }
+    .flip-card[data-correct="false"] .flip-back { background: rgba(248, 81, 73, 0.08); border-color: rgba(248, 81, 73, 0.3); box-shadow: 0 10px 30px rgba(248, 81, 73, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="false"] .b-title { color: #f85149; }
+    .flip-card[data-correct="false"] .b-title::after { content: 'Faux'; font-size: 0.8rem; padding: 2px 8px; background: rgba(248, 81, 73, 0.2); border-radius: 10px; }
+    .maison { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.10); border-left: 3px solid var(--c1); border-radius: 12px; padding: 18px 24px; margin-top: 22px; }
+    .maison-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c1); margin-bottom: 8px; opacity: 0.85; }
+    .maison-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .maison-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .prod { background: rgba(63,185,80,0.05); border: 1px solid rgba(63,185,80,0.18); border-left: 3px solid var(--c2); border-radius: 12px; padding: 18px 24px; margin-top: 18px; }
+    .prod-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c2); margin-bottom: 8px; opacity: 0.9; }
+    .prod-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .prod-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .lab { background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border: 1px solid var(--c1); border-radius: 24px; padding: 35px 40px; box-shadow: 0 0 60px rgba(0,0,0,0.3); }
+    .lab-badge { display: inline-block; padding: 4px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--c1); border-radius: 50px; color: var(--c1); font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+    .lab h3 { font-family: var(--font-display); font-style: italic; font-size: 1.7rem; margin: 0 0 18px; color: #fff; font-weight: 400; }
+    .lab-section { margin-top: 20px; }
+    .lab-section-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--c1); margin-bottom: 10px; opacity: 0.85; }
+    .code { font-family: var(--font-mono); background: rgba(0,0,0,0.5); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; font-size: 0.88rem; color: #c9d1d9; overflow-x: auto; white-space: pre; line-height: 1.55; }
+    .code .cmt { color: #6e7681; font-style: italic; }
+    .code .cmd { color: var(--c1); }
+    .code .key { color: #79c0ff; }
+    .code .val { color: #a5d6ff; }
+    .lab ol, .lab ul { margin: 0; padding-left: 20px; line-height: 1.7; color: #c9d1d9; font-size: 1rem; }
+    .lab li { margin-bottom: 8px; }
+    .lab p { color: #c9d1d9; line-height: 1.7; margin: 0 0 12px; font-size: 1rem; }
+    .next-mod { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; text-decoration: none; color: var(--c1); font-weight: 500; font-size: 0.95rem; padding: 10px 22px; border: 1px solid var(--c1); border-radius: 50px; background: rgba(255,255,255,0.03); transition: all 0.3s; }
+    .next-mod:hover { background: rgba(255,255,255,0.09); transform: translateX(4px); }
+    .nav { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 20px; background: rgba(13, 17, 23, 0.7); padding: 12px 30px; border-radius: 50px; border: 1px solid var(--line); backdrop-filter: blur(20px); z-index: 100; }
+    .btn { background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; transition: color 0.2s; padding: 0 10px; }
+    .btn:hover { color: #fff; }
+    .dots { display: flex; gap: 10px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); cursor: pointer; transition: all 0.3s; }
+    .dot.active { background: var(--c1); transform: scale(1.4); box-shadow: 0 0 10px var(--c1); }
+    .home { position: fixed; top: 25px; left: 25px; color: var(--muted); text-decoration: none; font-size: 0.85rem; padding: 8px 16px; border: 1px solid var(--line); border-radius: 50px; background: rgba(13,17,23,0.6); backdrop-filter: blur(10px); transition: all 0.3s; z-index: 100; }
+    .home:hover { color: #fff; border-color: var(--c1); }
+  </style>
+</head>
+<body>
+
+<a href="index.html" class="home">&larr; Sommaire</a>
+
+<div class="deck">
+  <div class="blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+
+  <!-- 1 -->
+  <div class="slide active" data-n="1">
+    <div class="content">
+      <span class="step-label">Étape 01 · Ouverture</span>
+      <h1>Administrer Kubernetes</h1>
+      <div class="panel">
+        <p>Trois jours, une machine virtuelle par personne, un cluster Minikube monté de vos mains dès le premier après-midi. À la fin, vous saurez installer un cluster, y faire tourner des applications, les exposer, les sécuriser et diagnostiquer ce qui ne marche pas.</p>
+        <p>Le fil de la formation est celui du métier : on part de l'architecture, on construit, on déploie, on expose, on protège, on dépanne. Chaque module se termine par un atelier sur votre propre cluster. Rien n'est simulé, rien n'est préinstallé.</p>
+        <p>Deux règles pour ces trois jours : on coupe quand quelque chose n'est pas clair, et on casse volontairement des choses pour comprendre comment elles se réparent.</p>
+      </div>
+      <div class="maison"><span class="maison-lbl">Ce qui vous attend</span><div class="maison-txt">17 modules, 16 ateliers, un cluster monté depuis zéro sur votre VM avec <em>Minikube</em>. Le questionnaire final du module 17 reprend l'ensemble du parcours.</div></div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="slide" data-n="2">
+    <div class="content">
+      <span class="step-label">Étape 02 · Objectifs</span>
+      <h2>Ce que Vous Saurez Faire</h2>
+      <div class="grid-3" style="margin-top:6px;">
+        <div class="mini-card"><h3>Installer</h3><p>Monter un cluster Minikube avec le bon pilote, le bon plugin réseau et les bons modules complémentaires, puis vérifier qu'il est sain.</p><span class="mini-tag">jour 1</span></div>
+        <div class="mini-card"><h3>Construire</h3><p>Conteneuriser une application, la publier dans un registre local, la déployer et la sonder.</p><span class="mini-tag">jour 1</span></div>
+        <div class="mini-card"><h3>Concevoir</h3><p>Découpler, gérer les ressources, choisir un pattern multi-conteneurs, traiter les traitements par lots.</p><span class="mini-tag">jour 2</span></div>
+        <div class="mini-card"><h3>Configurer</h3><p>Volumes, PersistentVolumes, ConfigMaps, Secrets, mises à jour progressives et retours arrière.</p><span class="mini-tag">jour 2</span></div>
+        <div class="mini-card"><h3>Sécuriser</h3><p>Authentification, RBAC, contrôleurs d'admission, contextes de sécurité, politiques réseau.</p><span class="mini-tag">jour 3</span></div>
+        <div class="mini-card"><h3>Exploiter</h3><p>Exposer par Service et Ingress, superviser, lire les journaux, dérouler un diagnostic méthodique.</p><span class="mini-tag">jour 3</span></div>
+      </div>
+      <div class="panel" style="margin-top:24px;">
+        <p>Le niveau visé est celui d'un administrateur autonome sur un cluster de taille modeste. Les prérequis attendus : ligne de commande Linux, notions de conteneurs, lecture de YAML, bases du réseau IP. Aucune connaissance préalable de Kubernetes n'est nécessaire.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="slide" data-n="3">
+    <div class="content">
+      <span class="step-label">Étape 03 · L'écosystème</span>
+      <h2>La Linux Foundation</h2>
+      <div class="panel">
+        <p>La <strong>Linux Foundation</strong> est une fondation à but non lucratif créée en 2000. Elle héberge le noyau Linux et environ un millier de projets open source, dont la <strong>CNCF</strong> (Cloud Native Computing Foundation), qui abrite Kubernetes depuis 2015.</p>
+        <p>Ce que cela change concrètement pour vous : personne ne possède Kubernetes. La spécification, les API et le programme de conformité sont publics. Un cluster certifié conforme se comporte de la même manière chez un hébergeur, chez un fournisseur cloud ou sur votre VM.</p>
+        <p>La fondation publie aussi un catalogue de formations et des certifications indépendantes des éditeurs. Ce cours suit la trame du parcours d'administration Kubernetes, avec des travaux pratiques adaptés au format présentiel et à une machine unique.</p>
+      </div>
+      <div class="prod"><span class="prod-lbl">Pourquoi ça compte</span><div class="prod-txt">Le <em>test de conformité</em> CNCF (Sonobuoy, vu au module 16) est ce qui garantit la portabilité. Une distribution qui échoue au test n'a pas le droit d'utiliser le nom Kubernetes. C'est aussi ce qui rend l'apprentissage sur Minikube transposable : les mêmes API, les mêmes objets, les mêmes commandes qu'en production.</div></div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="slide" data-n="4">
+    <div class="content">
+      <span class="step-label">Étape 04 · Certifications</span>
+      <h2>Certifications & Badges</h2>
+      <div class="panel"><p>Les certifications Kubernetes de la CNCF sont des examens <strong>pratiques</strong> : un terminal, des clusters réels, des tâches à réaliser dans le temps imparti. Aucun QCM, aucune question de cours. La réussite donne un badge numérique vérifiable, à publier sur un profil professionnel.</p></div>
+      <div class="grid-3" style="margin-top:24px;">
+        <div class="mini-card"><h3>KCNA</h3><p>Entrée de gamme, format questionnaire. Valide le vocabulaire et les concepts cloud native.</p><span class="mini-tag">découverte</span></div>
+        <div class="mini-card"><h3>CKA</h3><p>Administrateur. Cluster, réseau, stockage, dépannage. La cible naturelle de ce cours.</p><span class="mini-tag">administration</span></div>
+        <div class="mini-card"><h3>CKAD</h3><p>Développeur d'applications. Conception, configuration, observabilité, services.</p><span class="mini-tag">développement</span></div>
+        <div class="mini-card"><h3>CKS</h3><p>Sécurité. Exige le CKA en cours de validité. Durcissement, supervision, chaîne d'approvisionnement.</p><span class="mini-tag">sécurité</span></div>
+        <div class="mini-card"><h3>Le badge</h3><p>Délivré par Credly, il porte un identifiant vérifiable en ligne et une date d'expiration.</p><span class="mini-tag">preuve</span></div>
+        <div class="mini-card"><h3>Renouvellement</h3><p>Les certifications ont une durée de validité limitée. On les repasse pour rester à jour.</p><span class="mini-tag">à prévoir</span></div>
+      </div>
+      <div class="maison"><span class="maison-lbl">Avant de vous inscrire</span><div class="maison-txt">Durée, score de réussite, nombre de tentatives et durée de validité évoluent régulièrement. Vérifiez les modalités en vigueur sur le site de la Linux Foundation le jour de votre inscription, et pas dans un support de cours, <em>y compris celui-ci</em>.</div></div>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="slide" data-n="5">
+    <div class="content">
+      <span class="step-label">Étape 05 · Environnement</span>
+      <h2>Une VM, un Cluster : Minikube</h2>
+      <div class="panel">
+        <p>Chacun dispose d'une machine virtuelle Ubuntu unique. Nous y installerons <strong>Minikube</strong>, qui fabrique un cluster Kubernetes complet à l'intérieur d'un conteneur Docker tournant sur cette VM. Pas de virtualisation imbriquée, pas de second serveur, pas de compte cloud.</p>
+        <p>Il faut être clair sur ce que Minikube est et n'est pas. Ce n'est pas une version allégée de Kubernetes : à l'intérieur du nœud tourne un vrai plan de contrôle, installé par kubeadm, avec les mêmes composants, les mêmes certificats et les mêmes fichiers qu'en production. Nous irons les regarder au module 3.</p>
+        <p>Ce qui manque est ailleurs : la haute disponibilité, la répartition sur des machines physiques distinctes, et le comportement d'un réseau d'entreprise. Chaque fois qu'un écart avec la production compte, un encadré vert le signale.</p>
+      </div>
+      <div class="grid" style="margin-top:24px;">
+        <div class="mini-card"><h3>Le minimum matériel</h3><p>2 vCPU, 4 Go de RAM et 25 Go de disque libres sur la VM. Le cluster se contente de 2 Go, le reste sert aux images et aux ateliers du jour 2.</p></div>
+        <div class="mini-card"><h3>Les conventions</h3><p>Le préfixe <em>$</em> désigne une commande à saisir sur la VM. Les fichiers YAML sont créés dans <em>~/k8s</em>. Toutes les commandes sont fournies, il n'y a rien à deviner. Et si le mot <em>saucisse</em> revient dans tous les ateliers, ce n'est pas une erreur de frappe : c'est la signature de ce support.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <div class="slide" data-n="6">
+    <div class="content">
+      <span class="step-label">Étape 06 · QCM</span>
+      <h2>Vérifiez vos Acquis</h2>
+      <div class="qcm-grid">
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 01</div><div class="q-text">Kubernetes appartient à la CNCF, qui décide seule des évolutions du projet.</div></div>
+            <div class="flip-back"><div class="b-title">Gouvernance ouverte</div><p>La CNCF héberge le projet et finance l'infrastructure. Les décisions techniques appartiennent aux SIG et au comité de pilotage, ouverts à tous les contributeurs.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 02</div><div class="q-text">L'examen CKA se déroule dans un terminal, sur de vrais clusters.</div></div>
+            <div class="flip-back"><div class="b-title">Examen pratique</div><p>Aucune question à choix multiple. On vous donne des tâches et un accès aux clusters, la correction porte sur le résultat obtenu.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 03</div><div class="q-text">Minikube est une réimplémentation simplifiée de Kubernetes.</div></div>
+            <div class="flip-back"><div class="b-title">Le vrai Kubernetes</div><p>Minikube installe les composants officiels dans un nœud unique, via kubeadm. Les API, les objets et les commandes sont rigoureusement les mêmes qu'en production.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 04</div><div class="q-text">Un cluster à un seul nœud ne permet pas d'observer la haute disponibilité.</div></div>
+            <div class="flip-back"><div class="b-title">La limite assumée</div><p>Tout le reste s'étudie normalement. Pour la répartition entre nœuds, Minikube sait ajouter des nœuds supplémentaires sur la même machine, ce que nous ferons au module 3.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7 -->
+  <div class="slide" data-n="7">
+    <div class="content">
+      <span class="step-label">Étape 07 · Atelier</span>
+      <h2>Atelier 1 : Préparer la VM</h2>
+      <div class="lab">
+        <span class="lab-badge">Atelier 01 · 25 minutes</span>
+        <h3>Inventorier la machine et installer le moteur de conteneurs</h3>
+        <p>Minikube s'appuiera sur Docker comme pilote. On vérifie d'abord que la VM est apte, puis on installe le moteur et on valide qu'il fonctionne sans <em>sudo</em>.</p>
+        <div class="lab-section">
+          <div class="lab-section-title">1. Inventaire</div><div class="code"><span class="cmt">Version d'Ubuntu et architecture</span>
+<span class="cmd">$</span> lsb_release -a ; uname -m
+<span class="cmt">Processeurs (2 minimum) et memoire (4 Go recommandes)</span>
+<span class="cmd">$</span> nproc ; free -h
+<span class="cmt">Espace libre sur la racine (25 Go recommandes)</span>
+<span class="cmd">$</span> df -h /
+<span class="cmt">Adresse IP de la VM : notez-la, elle servira aux modules 14 et 15</span>
+<span class="cmd">$</span> ip -4 addr show scope global | grep inet
+<span class="cmt">Acces reseau vers les depots</span>
+<span class="cmd">$</span> curl -sI https://registry.k8s.io | head -1</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">2. Installer Docker Engine</div><div class="code"><span class="cmd">$</span> sudo apt-get update
+<span class="cmd">$</span> sudo apt-get install -y ca-certificates curl gnupg
+<span class="cmd">$</span> sudo install -m 0755 -d /etc/apt/keyrings
+<span class="cmd">$</span> curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+    | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+<span class="cmd">$</span> echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+https://download.docker.com/linux/ubuntu $(. /etc/os-release &amp;&amp; echo $VERSION_CODENAME) stable" \
+    | sudo tee /etc/apt/sources.list.d/docker.list
+<span class="cmd">$</span> sudo apt-get update
+<span class="cmd">$</span> sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">3. Utiliser Docker sans sudo, et valider</div><div class="code"><span class="cmt">Minikube refuse de demarrer si Docker exige sudo</span>
+<span class="cmd">$</span> sudo usermod -aG docker $USER
+<span class="cmt">Ouvre un shell avec le nouveau groupe, sans se deconnecter</span>
+<span class="cmd">$</span> newgrp docker
+<span class="cmd">$</span> docker run --rm hello-world
+<span class="cmd">$</span> docker info | grep -E 'Server Version|Cgroup Driver|Storage Driver'
+<span class="cmd">$</span> mkdir -p ~/k8s &amp;&amp; cd ~/k8s</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">Validation</div>
+          <p>La VM est prête si <em>nproc</em> renvoie au moins 2, s'il reste au moins 20 Go sur <em>/</em>, et si <em>docker run hello-world</em> aboutit <strong>sans sudo</strong>. Si la commande docker réclame encore les droits, fermez complètement le terminal et rouvrez-en un : l'appartenance au groupe n'est prise en compte qu'à l'ouverture d'une session.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8 -->
+  <div class="slide" data-n="8">
+    <div class="content">
+      <span class="step-label">Étape 08 · Conclusion</span>
+      <h2>Récapitulatif du Module 1</h2>
+      <div class="panel"><ul>
+        <li><strong>Objectif des trois jours :</strong> installer, faire tourner, exposer, sécuriser et dépanner un cluster, avec un atelier par module.</li>
+        <li><strong>Linux Foundation et CNCF :</strong> gouvernance ouverte, spécification publique, test de conformité qui garantit la portabilité.</li>
+        <li><strong>Certifications :</strong> KCNA, CKA, CKAD, CKS. Examens pratiques, badge vérifiable, modalités à vérifier au moment de l'inscription.</li>
+        <li><strong>Minikube :</strong> un vrai plan de contrôle dans un nœud unique, sur une seule VM. Les écarts avec la production seront signalés au fil des modules.</li>
+        <li><strong>VM prête :</strong> Docker installé et utilisable sans sudo, répertoire de travail créé.</li>
+      </ul></div>
+      <div class="maison"><span class="maison-lbl">Prochaine étape</span><div class="maison-txt">Avant d'installer un orchestrateur, il faut savoir ce qu'il orchestre. Le module 2 détaille l'architecture d'un cluster, puis vous fait manipuler des conteneurs <em>à la main</em> pour mesurer précisément ce que Kubernetes ajoute.</div></div>
+      <a href="module-2.html" class="next-mod">Module 2 : Architecture de Kubernetes ></a>
+    </div>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="btn" onclick="navSlide(-1)">&lsaquo;</button>
+  <div class="dots" id="dots"></div>
+  <button class="btn" onclick="navSlide(1)">&rsaquo;</button>
+</div>
+
+<script>
+  let cur = 1;
+  const total = 8;
+  const dotsContainer = document.getElementById('dots');
+  for(let i=1; i<=total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 1 ? ' active' : '');
+    dot.onclick = () => goToSlide(i);
+    dotsContainer.appendChild(dot);
+  }
+  function navSlide(dir) { goToSlide(cur + dir); }
+  function goToSlide(n) {
+    if(n < 1 || n > total) return;
+    cur = n;
+    document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+    document.querySelector(`.slide[data-n="${cur}"]`).classList.add('active');
+    document.querySelectorAll('.dot').forEach((d, i) => { d.classList.toggle('active', i + 1 === cur); });
+  }
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowRight') navSlide(1);
+    if(e.key === 'ArrowLeft') navSlide(-1);
+  });
+</script>
+</body>
+</html>

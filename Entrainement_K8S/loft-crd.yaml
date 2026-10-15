@@ -1,0 +1,21 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: lofts.residence.exemple.fr
+spec:
+  group: residence.exemple.fr
+  names: { kind: Loft, plural: lofts, singular: loft }
+  scope: Namespaced
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              surface: { type: integer }
+              etage: { type: integer }

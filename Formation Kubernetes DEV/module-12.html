@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 12 &middot; Securite : l'Acces a l'API</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117; --txt: #e6edf3; --muted: #8b949e;
+      --line: rgba(255, 255, 255, 0.1); --panel: rgba(255, 255, 255, 0.04);
+      --c1: #f0883e; --c2: #3fb950;
+      --font-display: 'Instrument Serif', Georgia, serif; --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--font-body); background: var(--bg); color: var(--txt); overflow: hidden; height: 100vh; }
+    .deck { width: 100vw; height: 100vh; position: relative; }
+    .slide { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transform: scale(0.97) translateY(20px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
+    .slide.active { opacity: 1; transform: scale(1) translateY(0); pointer-events: all; z-index: 10; }
+    .blobs { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.15; }
+    .blob-1 { top: -10%; right: -5%; width: 500px; height: 500px; background: var(--c1); }
+    .blob-2 { bottom: -10%; left: -5%; width: 400px; height: 400px; background: var(--c2); }
+    .content { position: relative; z-index: 2; width: 100%; max-width: 1100px; padding: 40px; max-height: 85vh; overflow-y: auto; }
+    .content::-webkit-scrollbar { width: 6px; }
+    .content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    .step-label { font-weight: 700; text-transform: uppercase; letter-spacing: 3px; color: var(--c1); font-size: 0.75rem; margin-bottom: 16px; display: block; opacity: 0.8; }
+    h1 { font-family: var(--font-display); font-size: clamp(3.5rem, 5vw, 4.5rem); font-style: italic; line-height: 1.05; margin: 0 0 30px; background: linear-gradient(135deg, #fff, var(--c1)); -webkit-background-clip: text; color: transparent; }
+    h2 { font-family: var(--font-display); font-size: clamp(2.5rem, 4vw, 3.2rem); font-style: italic; margin: 0 0 24px; color: #fff; font-weight: 400; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 35px 40px; line-height: 1.8; font-size: 1.1rem; color: #c9d1d9; backdrop-filter: blur(12px); box-shadow: 0 25px 50px rgba(0,0,0,0.2); }
+    .panel p { margin: 0 0 20px; } .panel p:last-child { margin-bottom: 0; }
+    .panel strong { color: #fff; font-weight: 500; }
+    .panel ul { margin: 0; padding-left: 20px; } .panel li { margin-bottom: 12px; }
+    .panel em { color: var(--c1); font-style: normal; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .mini-card { padding: 22px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 16px; }
+    .mini-card h3 { margin: 0 0 10px; font-size: 1.05rem; color: #fff; font-weight: 500; }
+    .mini-card p { margin: 0; font-size: 0.92rem; color: var(--muted); line-height: 1.6; }
+    .mini-card .mini-num { font-family: var(--font-display); font-style: italic; font-size: 2rem; color: var(--c1); line-height: 1; margin-bottom: 8px; }
+    .mini-card .mini-tag { font-family: var(--font-mono); font-size: 0.78rem; color: var(--c2); display: block; margin-top: 8px; }
+    .qcm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px; }
+    .flip-card { perspective: 1200px; height: 200px; cursor: pointer; }
+    .flip-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1); transform-style: preserve-3d; border-radius: 20px; }
+    .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
+    .flip-front, .flip-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; padding: 25px; display: flex; flex-direction: column; justify-content: center; backdrop-filter: blur(10px); }
+    .flip-front { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); transition: background 0.3s, border-color 0.3s; }
+    .flip-front:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.2); }
+    .q-num { font-size: 0.8rem; font-weight: 700; color: var(--c1); margin-bottom: 10px; letter-spacing: 1px; }
+    .q-text { font-size: 1.05rem; font-weight: 500; color: #fff; line-height: 1.5; }
+    .flip-back { transform: rotateY(180deg); font-size: 0.95rem; line-height: 1.6; border: 1px solid transparent; }
+    .b-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+    .flip-card[data-correct="true"] .flip-back { background: rgba(63, 185, 80, 0.08); border-color: rgba(63, 185, 80, 0.3); box-shadow: 0 10px 30px rgba(63, 185, 80, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="true"] .b-title { color: #3fb950; }
+    .flip-card[data-correct="true"] .b-title::after { content: 'Vrai'; font-size: 0.8rem; padding: 2px 8px; background: rgba(63, 185, 80, 0.2); border-radius: 10px; }
+    .flip-card[data-correct="false"] .flip-back { background: rgba(248, 81, 73, 0.08); border-color: rgba(248, 81, 73, 0.3); box-shadow: 0 10px 30px rgba(248, 81, 73, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="false"] .b-title { color: #f85149; }
+    .flip-card[data-correct="false"] .b-title::after { content: 'Faux'; font-size: 0.8rem; padding: 2px 8px; background: rgba(248, 81, 73, 0.2); border-radius: 10px; }
+    .maison { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.10); border-left: 3px solid var(--c1); border-radius: 12px; padding: 18px 24px; margin-top: 22px; }
+    .maison-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c1); margin-bottom: 8px; opacity: 0.85; }
+    .maison-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .maison-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .prod { background: rgba(63,185,80,0.05); border: 1px solid rgba(63,185,80,0.18); border-left: 3px solid var(--c2); border-radius: 12px; padding: 18px 24px; margin-top: 18px; }
+    .prod-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c2); margin-bottom: 8px; opacity: 0.9; }
+    .prod-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .prod-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .lab { background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border: 1px solid var(--c1); border-radius: 24px; padding: 35px 40px; box-shadow: 0 0 60px rgba(0,0,0,0.3); }
+    .lab-badge { display: inline-block; padding: 4px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--c1); border-radius: 50px; color: var(--c1); font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+    .lab h3 { font-family: var(--font-display); font-style: italic; font-size: 1.7rem; margin: 0 0 18px; color: #fff; font-weight: 400; }
+    .lab-section { margin-top: 20px; }
+    .lab-section-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--c1); margin-bottom: 10px; opacity: 0.85; }
+    .code { font-family: var(--font-mono); background: rgba(0,0,0,0.5); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; font-size: 0.88rem; color: #c9d1d9; overflow-x: auto; white-space: pre; line-height: 1.55; }
+    .code .cmt { color: #6e7681; font-style: italic; }
+    .code .cmd { color: var(--c1); }
+    .code .key { color: #79c0ff; }
+    .code .val { color: #a5d6ff; }
+    .lab ol, .lab ul { margin: 0; padding-left: 20px; line-height: 1.7; color: #c9d1d9; font-size: 1rem; }
+    .lab li { margin-bottom: 8px; }
+    .lab p { color: #c9d1d9; line-height: 1.7; margin: 0 0 12px; font-size: 1rem; }
+    .next-mod { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; text-decoration: none; color: var(--c1); font-weight: 500; font-size: 0.95rem; padding: 10px 22px; border: 1px solid var(--c1); border-radius: 50px; background: rgba(255,255,255,0.03); transition: all 0.3s; }
+    .next-mod:hover { background: rgba(255,255,255,0.09); transform: translateX(4px); }
+    .nav { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 20px; background: rgba(13, 17, 23, 0.7); padding: 12px 30px; border-radius: 50px; border: 1px solid var(--line); backdrop-filter: blur(20px); z-index: 100; }
+    .btn { background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; transition: color 0.2s; padding: 0 10px; }
+    .btn:hover { color: #fff; }
+    .dots { display: flex; gap: 10px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); cursor: pointer; transition: all 0.3s; }
+    .dot.active { background: var(--c1); transform: scale(1.4); box-shadow: 0 0 10px var(--c1); }
+    .home { position: fixed; top: 25px; left: 25px; color: var(--muted); text-decoration: none; font-size: 0.85rem; padding: 8px 16px; border: 1px solid var(--line); border-radius: 50px; background: rgba(13,17,23,0.6); backdrop-filter: blur(10px); transition: all 0.3s; z-index: 100; }
+    .home:hover { color: #fff; border-color: var(--c1); }
+  </style>
+</head>
+<body>
+
+<a href="index.html" class="home">&larr; Sommaire</a>
+
+<div class="deck">
+  <div class="blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+
+  <!-- 1 -->
+  <div class="slide active" data-n="1">
+    <div class="content">
+      <span class="step-label">Étape 01 · Vue d'ensemble</span>
+      <h1>Sécurité : l'Accès à l'API</h1>
+      <div class="panel">
+        <p>La sécurité d'un cluster se traite sur quatre plans emboîtés : l'<strong>infrastructure</strong> qui l'héberge, le <strong>cluster</strong> lui-même, les <strong>conteneurs</strong> qui y tournent et le <strong>code</strong> qu'ils exécutent. Ce module traite du deuxième, le module 13 des deux suivants.</p>
+        <p>Sécuriser le cluster revient d'abord à sécuriser l'accès à son API, puisque tout passe par elle. Un pod, un nœud, un administrateur ou un script de déploiement empruntent exactement le même chemin et subissent les mêmes contrôles.</p>
+        <p>Ce chemin comporte trois postes de contrôle successifs, dans cet ordre immuable : <strong>qui êtes-vous</strong>, <strong>avez-vous le droit</strong>, et <strong>votre demande est-elle acceptable</strong>.</p>
+      </div>
+      <div class="code" style="margin-top:22px;">requete HTTPS
+   ↓
+[1] Authentification   <span class="cmt"># qui etes-vous ? sinon 401</span>
+   ↓
+[2] Autorisation       <span class="cmt"># avez-vous le droit ? sinon 403</span>
+   ↓
+[3] Admission          <span class="cmt"># la demande est-elle acceptable ? modifiee ou refusee</span>
+   ↓
+validation du schema, puis ecriture dans etcd</div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="slide" data-n="2">
+    <div class="content">
+      <span class="step-label">Étape 02 · Étape 1</span>
+      <h2>L'Authentification</h2>
+      <div class="panel">
+        <p>Point de départ souvent surprenant : <strong>Kubernetes n'a pas d'objet Utilisateur</strong>. Aucune commande ne crée un utilisateur, aucune liste ne les énumère. L'API server se contente de constater une identité présentée par un mécanisme externe, et d'en extraire un nom et des groupes.</p>
+      </div>
+      <div class="grid-3" style="margin-top:24px;">
+        <div class="mini-card"><h3>Certificat client</h3><p>Le mécanisme des administrateurs. Le champ <em>CN</em> devient le nom d'utilisateur, chaque champ <em>O</em> devient un groupe. Signé par l'autorité du cluster.</p><span class="mini-tag">humains</span></div>
+        <div class="mini-card"><h3>Jeton de compte de service</h3><p>Le mécanisme des applications. Un jeton signé, monté automatiquement dans les pods, à durée de vie limitée.</p><span class="mini-tag">programmes</span></div>
+        <div class="mini-card"><h3>OIDC</h3><p>La délégation à un fournisseur d'identité de l'entreprise. La seule solution qui passe l'échelle pour les humains.</p><span class="mini-tag">production</span></div>
+      </div>
+      <div class="panel" style="margin-top:24px;">
+        <p>Les <strong>groupes</strong> comptent autant que le nom. Deux d'entre eux sont à connaître par cœur : <em>system:masters</em> contourne entièrement l'autorisation, et <em>system:authenticated</em> rassemble tout utilisateur authentifié, quel qu'il soit. Accorder un droit à ce second groupe revient à l'accorder à tout le monde.</p>
+      </div>
+      <div class="prod"><span class="prod-lbl">Sur le terrain</span><div class="prod-txt">Un certificat client ne se révoque pas. Il n'existe aucune liste de révocation dans Kubernetes : un certificat valide reste valide jusqu'à son expiration, même après le départ de son porteur. La seule parade radicale est de renouveler l'autorité de certification du cluster, ce qui invalide tout. D'où l'usage d'OIDC dès que l'équipe dépasse quelques personnes, et de durées de validité courtes.</div></div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="slide" data-n="3">
+    <div class="content">
+      <span class="step-label">Étape 03 · Étape 2</span>
+      <h2>Autorisation : d'ABAC à RBAC</h2>
+      <div class="panel">
+        <p>Une fois l'identité établie, l'API server la confronte à ses modules d'autorisation, dans l'ordre déclaré par l'option <em>--authorization-mode</em>. Le premier module qui accorde le droit fait passer la requête. Si aucun ne se prononce, elle est refusée.</p>
+      </div>
+      <div class="grid" style="margin-top:24px;">
+        <div class="mini-card"><h3>ABAC</h3><p>Le mécanisme d'origine, fondé sur un fichier de règles lu au démarrage. Toute modification exige de <strong>redémarrer l'API server</strong>, et les règles ne sont pas des objets du cluster. Considéré comme historique.</p><span class="mini-tag">obsolète</span></div>
+        <div class="mini-card"><h3>RBAC</h3><p>Les droits sont des <strong>objets Kubernetes</strong>, modifiables à chaud, versionnables, soumis eux-mêmes à RBAC. C'est le mode actif sur tous les clusters modernes, le nôtre compris.</p><span class="mini-tag">standard</span></div>
+      </div>
+      <div class="panel" style="margin-top:24px;">
+        <p>Deux autres modules complètent le tableau. <strong>Node</strong> restreint chaque kubelet aux seuls objets qui concernent ses propres pods, ce qui limite fortement les dégâts en cas de compromission d'un nœud. <strong>Webhook</strong> délègue la décision à un service externe, pour les organisations qui ont déjà un moteur de politiques.</p>
+      </div>
+      <div class="maison"><span class="maison-lbl">La règle d'or de RBAC</span><div class="maison-txt">RBAC est <em>purement additif</em>. Il n'existe aucune règle d'interdiction. On ne retire pas un droit, on s'abstient de l'accorder. Une permission de trop, quelque part, suffit donc à ouvrir l'accès, et aucune règle ne viendra la contredire.</div></div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="slide" data-n="4">
+    <div class="content">
+      <span class="step-label">Étape 04 · Le mécanisme</span>
+      <h2>Le Processus RBAC</h2>
+      <div class="panel"><p>Quatre objets, deux questions. <strong>Quoi</strong> est décrit par un rôle, <strong>à qui</strong> par une liaison. La portée, namespace ou cluster entier, distingue les deux variantes de chacun.</p></div>
+      <div class="grid" style="margin-top:24px;">
+        <div class="mini-card"><h3>Role &amp; ClusterRole</h3><p>La liste des permissions : quelles ressources, quels verbes, éventuellement quels objets nommés. Le Role vaut dans un namespace, le ClusterRole partout et sur les ressources non cloisonnées comme les nœuds.</p></div>
+        <div class="mini-card"><h3>RoleBinding &amp; ClusterRoleBinding</h3><p>L'attribution d'un rôle à des sujets : utilisateurs, groupes, comptes de service. Un RoleBinding peut référencer un ClusterRole, ce qui limite alors ses effets à son namespace.</p></div>
+      </div>
+      <div class="code" style="margin-top:22px;"><span class="key">kind</span>: <span class="val">Role</span>
+<span class="key">metadata</span>: { <span class="key">namespace</span>: <span class="val">saucisse</span>, <span class="key">name</span>: <span class="val">lecteur</span> }
+<span class="key">rules</span>:
+- <span class="key">apiGroups</span>: [<span class="val">""</span>]                      <span class="cmt"># "" = le groupe principal (core)</span>
+  <span class="key">resources</span>: [<span class="val">"pods"</span>, <span class="val">"pods/log"</span>]
+  <span class="key">verbs</span>: [<span class="val">"get"</span>, <span class="val">"list"</span>, <span class="val">"watch"</span>]
+---
+<span class="key">kind</span>: <span class="val">RoleBinding</span>
+<span class="key">subjects</span>:
+- { <span class="key">kind</span>: <span class="val">User</span>, <span class="key">name</span>: <span class="val">lea</span>, <span class="key">apiGroup</span>: <span class="val">rbac.authorization.k8s.io</span> }
+<span class="key">roleRef</span>: { <span class="key">kind</span>: <span class="val">Role</span>, <span class="key">name</span>: <span class="val">lecteur</span>, <span class="key">apiGroup</span>: <span class="val">rbac.authorization.k8s.io</span> }</div>
+      <div class="prod"><span class="prod-lbl">Sur le terrain</span><div class="prod-txt">Chaque pod reçoit par défaut le compte de service <em>default</em> de son namespace, avec son jeton monté. Ce compte n'a presque aucun droit, mais il permet de joindre l'API. Sur une charge qui n'a pas besoin de parler à Kubernetes, mettez <em>automountServiceAccountToken: false</em> : c'est la mesure de durcissement la plus simple et la plus efficace du module.</div></div>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="slide" data-n="5">
+    <div class="content">
+      <span class="step-label">Étape 05 · Étape 3</span>
+      <h2>Les Contrôleurs d'Admission</h2>
+      <div class="panel">
+        <p>La requête est authentifiée et autorisée. Reste à savoir si elle est <em>acceptable</em> au regard des règles de l'organisation. C'est le rôle des contrôleurs d'admission, qui interviennent en deux temps.</p>
+        <ul>
+          <li>Les contrôleurs <strong>modificateurs</strong> passent en premier et peuvent transformer l'objet : ajouter des valeurs par défaut, injecter un sidecar, compléter des annotations.</li>
+          <li>Les contrôleurs <strong>validateurs</strong> passent ensuite et ne peuvent que dire oui ou non.</li>
+        </ul>
+        <p>Une partie est compilée dans l'API server et s'active par une option de démarrage. Vous en avez déjà rencontré trois sans le savoir : <em>LimitRanger</em> a rempli les ressources de vos pods au module 7, <em>ResourceQuota</em> a refusé le pod trop gros, et <em>ServiceAccount</em> monte automatiquement les jetons.</p>
+      </div>
+      <div class="code" style="margin-top:22px;"><span class="cmt">Les contrôleurs actifs sur votre cluster</span>
+<span class="cmd">$</span> minikube ssh -- sudo grep enable-admission-plugins \
+    /etc/kubernetes/manifests/kube-apiserver.yaml</div>
+      <div class="maison"><span class="maison-lbl">L'extension par webhook</span><div class="maison-txt">Au-delà des contrôleurs intégrés, l'API server sait appeler un service HTTPS externe pour chaque création d'objet. C'est ainsi que fonctionnent les moteurs de politiques comme Kyverno ou OPA Gatekeeper : « refuser toute image sans étiquette de version », « imposer une annotation de propriétaire ». Attention, un webhook injoignable et mal configuré peut bloquer <em>toutes</em> les créations d'objets du cluster.</div></div>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <div class="slide" data-n="6">
+    <div class="content">
+      <span class="step-label">Étape 06 · QCM</span>
+      <h2>Vérifiez vos Acquis</h2>
+      <div class="qcm-grid">
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 01</div><div class="q-text">On crée un utilisateur avec kubectl create user.</div></div>
+            <div class="flip-back"><div class="b-title">Aucun objet Utilisateur</div><p>Kubernetes ne stocke pas d'utilisateurs. Il constate une identité présentée par un certificat, un jeton ou un fournisseur OIDC, et en extrait un nom et des groupes.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 02</div><div class="q-text">RBAC ne permet pas d'écrire une règle d'interdiction.</div></div>
+            <div class="flip-back"><div class="b-title">Purement additif</div><p>Tout est refusé par défaut, et les règles ne font qu'ajouter des permissions. Retirer un droit consiste à supprimer la liaison qui l'accordait.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 03</div><div class="q-text">Un RoleBinding peut référencer un ClusterRole.</div></div>
+            <div class="flip-back"><div class="b-title">Combinaison utile</div><p>Les permissions du ClusterRole s'appliquent alors uniquement dans le namespace du RoleBinding. C'est la façon propre de réutiliser un rôle standard comme <em>view</em> ou <em>edit</em>.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 04</div><div class="q-text">Modifier des règles ABAC prend effet immédiatement.</div></div>
+            <div class="flip-back"><div class="b-title">Redémarrage requis</div><p>Le fichier de règles ABAC est lu au démarrage de l'API server. C'est l'une des raisons pour lesquelles RBAC l'a remplacé.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7 -->
+  <div class="slide" data-n="7">
+    <div class="content">
+      <span class="step-label">Étape 07 · Atelier</span>
+      <h2>Atelier 12 : Créer un Accès Limité</h2>
+      <div class="lab">
+        <span class="lab-badge">Atelier 12 · Partie 1 · 25 minutes</span>
+        <h3>Une identité par certificat, signée par le cluster</h3>
+        <div class="lab-section">
+          <div class="lab-section-title">1. Fabriquer la clé et la demande de signature</div><div class="code"><span class="cmd">$</span> mkdir -p ~/k8s/rbac &amp;&amp; cd ~/k8s/rbac
+<span class="cmd">$</span> openssl genrsa -out lea.key 2048
+<span class="cmt">CN devient le nom d'utilisateur, O devient un groupe</span>
+<span class="cmd">$</span> openssl req -new -key lea.key -out lea.csr -subj "/CN=lea/O=devs"</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">2. Faire signer par l'autorité du cluster</div><div class="code"><span class="cmd">$</span> cat &lt;&lt;EOF | kubectl apply -f -
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata: { name: lea }
+spec:
+  request: $(base64 -w0 lea.csr)
+  signerName: kubernetes.io/kube-apiserver-client
+  usages: ["client auth"]
+EOF
+<span class="cmd">$</span> kubectl get csr lea
+<span class="cmd">$</span> kubectl certificate approve lea
+<span class="cmd">$</span> kubectl get csr lea -o jsonpath='{.status.certificate}' | base64 -d &gt; lea.crt
+<span class="cmd">$</span> openssl x509 -in lea.crt -noout -subject -dates</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">3. Un contexte kubectl pour cette identité</div><div class="code"><span class="cmd">$</span> kubectl config set-credentials lea \
+    --client-certificate=lea.crt --client-key=lea.key --embed-certs=true
+<span class="cmd">$</span> kubectl config set-context lea --cluster=minikube --user=lea --namespace=saucisse
+<span class="cmt">Authentifiee, mais aucun droit : attendu Forbidden</span>
+<span class="cmd">$</span> kubectl --context=lea get pods
+<span class="cmd">$</span> kubectl auth whoami --context=lea</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8 -->
+  <div class="slide" data-n="8">
+    <div class="content">
+      <span class="step-label">Étape 08 · Atelier</span>
+      <h2>Atelier 12 : Accorder, Vérifier, Restreindre</h2>
+      <div class="lab">
+        <span class="lab-badge">Atelier 12 · Partie 2 · 25 minutes</span>
+        <h3>Rôles, liaisons, comptes de service</h3>
+        <div class="lab-section">
+          <div class="lab-section-title">1. Accorder la lecture des pods dans un seul namespace</div><div class="code"><span class="cmd">$</span> kubectl create role lecteur -n saucisse \
+    --verb=get,list,watch --resource=pods,pods/log
+<span class="cmd">$</span> kubectl create rolebinding lea-lecteur -n saucisse \
+    --role=lecteur --user=lea
+<span class="cmt">Autorise maintenant</span>
+<span class="cmd">$</span> kubectl --context=lea get pods -n saucisse
+<span class="cmt">Toujours refuse : autre namespace, ou autre verbe</span>
+<span class="cmd">$</span> kubectl --context=lea get pods -n default
+<span class="cmd">$</span> kubectl --context=lea delete pod sans-rien -n saucisse</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">2. Auditer les droits sans changer de contexte</div><div class="code"><span class="cmd">$</span> kubectl auth can-i list pods --as=lea -n saucisse
+<span class="cmd">$</span> kubectl auth can-i delete pods --as=lea -n saucisse
+<span class="cmt">L'inventaire complet des droits d'une identite</span>
+<span class="cmd">$</span> kubectl auth can-i --list --as=lea -n saucisse
+<span class="cmt">Fonctionne aussi pour un groupe</span>
+<span class="cmd">$</span> kubectl auth can-i list pods --as=lea --as-group=devs -n saucisse</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">3. Le même travail pour une application</div><div class="code"><span class="cmd">$</span> kubectl create serviceaccount robot -n saucisse
+<span class="cmt">Attendu : no</span>
+<span class="cmd">$</span> kubectl auth can-i list pods -n saucisse \
+    --as=system:serviceaccount:saucisse:robot
+<span class="cmd">$</span> kubectl create rolebinding robot-lecteur -n saucisse \
+    --role=lecteur --serviceaccount=saucisse:robot
+
+<span class="cmt">Interroger l'API depuis un pod, avec le jeton monte automatiquement</span>
+<span class="cmd">$</span> kubectl run client -n saucisse --image=nicolaka/netshoot --serviceaccount=robot \
+    --command -- sleep 3600
+<span class="cmd">$</span> kubectl exec -n saucisse client -- sh -c \
+  'curl -s --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
+   -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
+   https://kubernetes.default/api/v1/namespaces/saucisse/pods | head -12'</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">4. Couper l'accès inutile</div><div class="code"><span class="cmt">Une charge qui n'a rien a demander a l'API ne doit pas porter de jeton</span>
+<span class="cmd">$</span> kubectl patch serviceaccount default -n saucisse \
+    -p '{"automountServiceAccountToken":false}'
+<span class="cmd">$</span> kubectl run sans-jeton -n saucisse --image=busybox:1.36 --command -- sleep 300
+<span class="cmt">Attendu : le repertoire des secrets n'existe pas</span>
+<span class="cmd">$</span> kubectl exec -n saucisse sans-jeton -- ls /var/run/secrets/kubernetes.io/ 2&gt;&amp;1 | head -2</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">Validation</div>
+          <p>Vous devez pouvoir démontrer trois refus distincts (identité sans droit, mauvais namespace, verbe non accordé) et une réussite, puis lire l'inventaire des droits avec <em>auth can-i --list</em>. Conservez le contexte <em>lea</em>, il reviendra dans le questionnaire final.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9 -->
+  <div class="slide" data-n="9">
+    <div class="content">
+      <span class="step-label">Étape 09 · Conclusion</span>
+      <h2>Récapitulatif du Module 12</h2>
+      <div class="panel"><ul>
+        <li><strong>Trois postes de contrôle :</strong> authentification (401), autorisation (403), admission. Dans cet ordre, pour toute requête.</li>
+        <li><strong>Pas d'objet Utilisateur.</strong> Certificat client (CN et O), jeton de compte de service, ou OIDC en production.</li>
+        <li><strong>ABAC</strong> est historique et exige un redémarrage. <strong>RBAC</strong> est le standard, modifiable à chaud.</li>
+        <li><strong>RBAC additif :</strong> Role et ClusterRole pour les permissions, RoleBinding et ClusterRoleBinding pour l'attribution. Aucune interdiction possible.</li>
+        <li><strong>Admission :</strong> modificateurs puis validateurs. LimitRanger et ResourceQuota en sont, les webhooks étendent le mécanisme.</li>
+      </ul></div>
+      <div class="maison"><span class="maison-lbl">Prochaine étape</span><div class="maison-txt">L'accès à l'API est maîtrisé. Reste ce qui se passe <em>à l'intérieur</em> des pods, où un conteneur privilégié peut encore prendre le contrôle du nœud, et sur le réseau, où tout pod peut aujourd'hui parler à tout autre pod du cluster.</div></div>
+      <a href="module-13.html" class="next-mod">Module 13 : Sécurité des Charges & du Réseau ></a>
+    </div>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="btn" onclick="navSlide(-1)">&lsaquo;</button>
+  <div class="dots" id="dots"></div>
+  <button class="btn" onclick="navSlide(1)">&rsaquo;</button>
+</div>
+
+<script>
+  let cur = 1;
+  const total = 9;
+  const dotsContainer = document.getElementById('dots');
+  for(let i=1; i<=total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 1 ? ' active' : '');
+    dot.onclick = () => goToSlide(i);
+    dotsContainer.appendChild(dot);
+  }
+  function navSlide(dir) { goToSlide(cur + dir); }
+  function goToSlide(n) {
+    if(n < 1 || n > total) return;
+    cur = n;
+    document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+    document.querySelector(`.slide[data-n="${cur}"]`).classList.add('active');
+    document.querySelectorAll('.dot').forEach((d, i) => { d.classList.toggle('active', i + 1 === cur); });
+  }
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowRight') navSlide(1);
+    if(e.key === 'ArrowLeft') navSlide(-1);
+  });
+</script>
+</body>
+</html>

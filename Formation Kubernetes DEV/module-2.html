@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 2 &middot; Architecture de Kubernetes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117; --txt: #e6edf3; --muted: #8b949e;
+      --line: rgba(255, 255, 255, 0.1); --panel: rgba(255, 255, 255, 0.04);
+      --c1: #22d3ee; --c2: #3fb950;
+      --font-display: 'Instrument Serif', Georgia, serif; --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--font-body); background: var(--bg); color: var(--txt); overflow: hidden; height: 100vh; }
+    .deck { width: 100vw; height: 100vh; position: relative; }
+    .slide { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transform: scale(0.97) translateY(20px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
+    .slide.active { opacity: 1; transform: scale(1) translateY(0); pointer-events: all; z-index: 10; }
+    .blobs { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.15; }
+    .blob-1 { top: -10%; right: -5%; width: 500px; height: 500px; background: var(--c1); }
+    .blob-2 { bottom: -10%; left: -5%; width: 400px; height: 400px; background: var(--c2); }
+    .content { position: relative; z-index: 2; width: 100%; max-width: 1100px; padding: 40px; max-height: 85vh; overflow-y: auto; }
+    .content::-webkit-scrollbar { width: 6px; }
+    .content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    .step-label { font-weight: 700; text-transform: uppercase; letter-spacing: 3px; color: var(--c1); font-size: 0.75rem; margin-bottom: 16px; display: block; opacity: 0.8; }
+    h1 { font-family: var(--font-display); font-size: clamp(3.5rem, 5vw, 4.5rem); font-style: italic; line-height: 1.05; margin: 0 0 30px; background: linear-gradient(135deg, #fff, var(--c1)); -webkit-background-clip: text; color: transparent; }
+    h2 { font-family: var(--font-display); font-size: clamp(2.5rem, 4vw, 3.2rem); font-style: italic; margin: 0 0 24px; color: #fff; font-weight: 400; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 35px 40px; line-height: 1.8; font-size: 1.1rem; color: #c9d1d9; backdrop-filter: blur(12px); box-shadow: 0 25px 50px rgba(0,0,0,0.2); }
+    .panel p { margin: 0 0 20px; } .panel p:last-child { margin-bottom: 0; }
+    .panel strong { color: #fff; font-weight: 500; }
+    .panel ul { margin: 0; padding-left: 20px; } .panel li { margin-bottom: 12px; }
+    .panel em { color: var(--c1); font-style: normal; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .mini-card { padding: 22px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 16px; }
+    .mini-card h3 { margin: 0 0 10px; font-size: 1.05rem; color: #fff; font-weight: 500; }
+    .mini-card p { margin: 0; font-size: 0.92rem; color: var(--muted); line-height: 1.6; }
+    .mini-card .mini-num { font-family: var(--font-display); font-style: italic; font-size: 2rem; color: var(--c1); line-height: 1; margin-bottom: 8px; }
+    .mini-card .mini-tag { font-family: var(--font-mono); font-size: 0.78rem; color: var(--c2); display: block; margin-top: 8px; }
+    .qcm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px; }
+    .flip-card { perspective: 1200px; height: 200px; cursor: pointer; }
+    .flip-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1); transform-style: preserve-3d; border-radius: 20px; }
+    .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
+    .flip-front, .flip-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; padding: 25px; display: flex; flex-direction: column; justify-content: center; backdrop-filter: blur(10px); }
+    .flip-front { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); transition: background 0.3s, border-color 0.3s; }
+    .flip-front:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.2); }
+    .q-num { font-size: 0.8rem; font-weight: 700; color: var(--c1); margin-bottom: 10px; letter-spacing: 1px; }
+    .q-text { font-size: 1.05rem; font-weight: 500; color: #fff; line-height: 1.5; }
+    .flip-back { transform: rotateY(180deg); font-size: 0.95rem; line-height: 1.6; border: 1px solid transparent; }
+    .b-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+    .flip-card[data-correct="true"] .flip-back { background: rgba(63, 185, 80, 0.08); border-color: rgba(63, 185, 80, 0.3); box-shadow: 0 10px 30px rgba(63, 185, 80, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="true"] .b-title { color: #3fb950; }
+    .flip-card[data-correct="true"] .b-title::after { content: 'Vrai'; font-size: 0.8rem; padding: 2px 8px; background: rgba(63, 185, 80, 0.2); border-radius: 10px; }
+    .flip-card[data-correct="false"] .flip-back { background: rgba(248, 81, 73, 0.08); border-color: rgba(248, 81, 73, 0.3); box-shadow: 0 10px 30px rgba(248, 81, 73, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="false"] .b-title { color: #f85149; }
+    .flip-card[data-correct="false"] .b-title::after { content: 'Faux'; font-size: 0.8rem; padding: 2px 8px; background: rgba(248, 81, 73, 0.2); border-radius: 10px; }
+    .maison { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.10); border-left: 3px solid var(--c1); border-radius: 12px; padding: 18px 24px; margin-top: 22px; }
+    .maison-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c1); margin-bottom: 8px; opacity: 0.85; }
+    .maison-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .maison-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .prod { background: rgba(63,185,80,0.05); border: 1px solid rgba(63,185,80,0.18); border-left: 3px solid var(--c2); border-radius: 12px; padding: 18px 24px; margin-top: 18px; }
+    .prod-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c2); margin-bottom: 8px; opacity: 0.9; }
+    .prod-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .prod-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .lab { background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border: 1px solid var(--c1); border-radius: 24px; padding: 35px 40px; box-shadow: 0 0 60px rgba(0,0,0,0.3); }
+    .lab-badge { display: inline-block; padding: 4px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--c1); border-radius: 50px; color: var(--c1); font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+    .lab h3 { font-family: var(--font-display); font-style: italic; font-size: 1.7rem; margin: 0 0 18px; color: #fff; font-weight: 400; }
+    .lab-section { margin-top: 20px; }
+    .lab-section-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--c1); margin-bottom: 10px; opacity: 0.85; }
+    .code { font-family: var(--font-mono); background: rgba(0,0,0,0.5); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; font-size: 0.88rem; color: #c9d1d9; overflow-x: auto; white-space: pre; line-height: 1.55; }
+    .code .cmt { color: #6e7681; font-style: italic; }
+    .code .cmd { color: var(--c1); }
+    .code .key { color: #79c0ff; }
+    .code .val { color: #a5d6ff; }
+    .lab ol, .lab ul { margin: 0; padding-left: 20px; line-height: 1.7; color: #c9d1d9; font-size: 1rem; }
+    .lab li { margin-bottom: 8px; }
+    .lab p { color: #c9d1d9; line-height: 1.7; margin: 0 0 12px; font-size: 1rem; }
+    .next-mod { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; text-decoration: none; color: var(--c1); font-weight: 500; font-size: 0.95rem; padding: 10px 22px; border: 1px solid var(--c1); border-radius: 50px; background: rgba(255,255,255,0.03); transition: all 0.3s; }
+    .next-mod:hover { background: rgba(255,255,255,0.09); transform: translateX(4px); }
+    .nav { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 20px; background: rgba(13, 17, 23, 0.7); padding: 12px 30px; border-radius: 50px; border: 1px solid var(--line); backdrop-filter: blur(20px); z-index: 100; }
+    .btn { background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; transition: color 0.2s; padding: 0 10px; }
+    .btn:hover { color: #fff; }
+    .dots { display: flex; gap: 10px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); cursor: pointer; transition: all 0.3s; }
+    .dot.active { background: var(--c1); transform: scale(1.4); box-shadow: 0 0 10px var(--c1); }
+    .home { position: fixed; top: 25px; left: 25px; color: var(--muted); text-decoration: none; font-size: 0.85rem; padding: 8px 16px; border: 1px solid var(--line); border-radius: 50px; background: rgba(13,17,23,0.6); backdrop-filter: blur(10px); transition: all 0.3s; z-index: 100; }
+    .home:hover { color: #fff; border-color: var(--c1); }
+  </style>
+</head>
+<body>
+
+<a href="index.html" class="home">&larr; Sommaire</a>
+
+<div class="deck">
+  <div class="blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+
+  <!-- 1 -->
+  <div class="slide active" data-n="1">
+    <div class="content">
+      <span class="step-label">Étape 01 · Définition</span>
+      <h1>Architecture de Kubernetes</h1>
+      <div class="panel">
+        <p>Kubernetes est un <strong>orchestrateur de conteneurs</strong> : il fait tourner des applications conteneurisées sur un parc de machines et maintient en permanence l'état que vous avez déclaré.</p>
+        <p>Le principe tient en une boucle. Vous écrivez ce que vous voulez, par exemple trois exemplaires de cette application. Le système compare cet <strong>état désiré</strong> à l'<strong>état réel</strong> observé sur les machines, et agit sur la différence. En boucle, sans arrêt, sans intervention.</p>
+        <p>Tout le reste, les objets, les contrôleurs, les composants que nous allons détailler, ne sont que des variations de cette même boucle appliquée à des sujets différents : des pods, des adresses réseau, des certificats, des volumes.</p>
+      </div>
+      <div class="maison"><span class="maison-lbl">À retenir d'abord</span><div class="maison-txt">Kubernetes ne construit pas les images de conteneurs et n'exécute pas les conteneurs lui-même. Il <em>décide</em>, il <em>planifie</em> et il <em>surveille</em>. L'exécution est déléguée à un moteur de conteneurs sur chaque nœud.</div></div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="slide" data-n="2">
+    <div class="content">
+      <span class="step-label">Étape 02 · Le contexte</span>
+      <h2>Les Défis & l'Héritage Borg</h2>
+      <div class="panel">
+        <p>Un conteneur isolé se gère avec une commande. Cinquante conteneurs répartis sur dix machines posent des questions auxquelles on ne peut plus répondre à la main : sur quelle machine placer celui-ci, que faire quand une machine tombe la nuit, comment passer de 3 à 30 exemplaires, comment les composants se trouvent entre eux alors que leurs adresses changent, comment déployer une nouvelle version sans coupure.</p>
+        <p>Google a affronté ces questions bien avant tout le monde avec <strong>Borg</strong>, son système interne d'ordonnancement, en production depuis le milieu des années 2000. Borg gère des milliers de machines par cellule et exécute l'essentiel des charges internes de l'entreprise.</p>
+        <p>Kubernetes, publié en 2014, en est l'héritier direct, réécrit en Go et conçu pour l'extérieur. On y retrouve les idées de Borg : regrouper des conteneurs qui partagent un contexte, ordonnancer selon les ressources demandées, surveiller par des boucles de contrôle indépendantes. Ce qui change, c'est l'API publique et l'extensibilité.</p>
+      </div>
+      <div class="prod"><span class="prod-lbl">Sur le terrain</span><div class="prod-txt">Cet héritage explique certains choix qui surprennent. Le <em>pod</em>, par exemple, n'a pas d'équivalent chez Docker : il vient de l'<em>alloc</em> de Borg, un espace réservé sur une machine dans lequel plusieurs tâches cohabitent en partageant réseau et disque.</div></div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="slide" data-n="3">
+    <div class="content">
+      <span class="step-label">Étape 03 · Vue d'ensemble</span>
+      <h2>Deux Rôles, Une Frontière</h2>
+      <div class="panel"><p>Un cluster se divise en deux populations de machines. Le <strong>plan de contrôle</strong> décide et mémorise. Les <strong>nœuds de travail</strong> exécutent. La frontière entre les deux est une seule et unique porte : l'API server.</p></div>
+      <div class="grid" style="margin-top:24px;">
+        <div class="mini-card"><h3>Plan de contrôle</h3><p>Reçoit vos demandes, les valide, les stocke, décide où placer les charges et surveille les écarts. Historiquement appelé nœud maître.</p><span class="mini-tag">décide</span></div>
+        <div class="mini-card"><h3>Nœuds de travail</h3><p>Reçoivent des instructions et font tourner les conteneurs. Historiquement appelés minions, aujourd'hui workers ou simplement nœuds.</p><span class="mini-tag">exécute</span></div>
+      </div>
+      <div class="panel" style="margin-top:24px;">
+        <p>Trois règles de circulation à retenir dès maintenant, elles expliquent la moitié des pannes que vous rencontrerez :</p>
+        <ul>
+          <li><strong>Seul l'API server parle à etcd.</strong> Aucun autre composant n'a le droit d'écrire dans la base.</li>
+          <li><strong>Aucun composant ne parle directement à un autre.</strong> Tous passent par l'API server, qui sert de bus central et de point d'autorisation.</li>
+          <li><strong>Le trafic va des nœuds vers le plan de contrôle</strong>, jamais l'inverse par défaut. Le kubelet appelle l'API server et non le contraire.</li>
+        </ul>
+      </div>
+      <div class="maison"><span class="maison-lbl">Sur Minikube</span><div class="maison-txt">Les deux rôles sont tenus par le <em>même</em> nœud : un conteneur Docker qui héberge à la fois le plan de contrôle et vos applications. La séparation logique reste entière, seule la séparation physique disparaît.</div></div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="slide" data-n="4">
+    <div class="content">
+      <span class="step-label">Étape 04 · Plan de contrôle</span>
+      <h2>Les Quatre Composants qui Décident</h2>
+      <div class="grid" style="margin-top:6px;">
+        <div class="mini-card"><h3>kube-apiserver</h3><p>La façade REST du cluster, en écoute sur le port 6443. Il authentifie, autorise, valide chaque objet puis l'écrit dans etcd. Sans lui, plus rien n'est modifiable.</p><span class="mini-tag">la porte d'entrée</span></div>
+        <div class="mini-card"><h3>etcd</h3><p>Base clé-valeur distribuée, cohérente, fondée sur l'algorithme Raft. Elle contient l'intégralité de l'état du cluster. C'est le seul élément dont la perte est irréversible.</p><span class="mini-tag">la mémoire</span></div>
+        <div class="mini-card"><h3>kube-scheduler</h3><p>Repère les pods sans nœud affecté, écarte les nœuds impossibles (filtrage), note les nœuds restants (scoring) et écrit son choix. Il ne démarre rien lui-même.</p><span class="mini-tag">l'ordonnanceur</span></div>
+        <div class="mini-card"><h3>kube-controller-manager</h3><p>Un processus qui héberge des dizaines de boucles de contrôle : nœuds, ReplicaSets, endpoints, comptes de service, jetons. Chacune corrige un type d'écart.</p><span class="mini-tag">les correcteurs</span></div>
+      </div>
+      <div class="panel" style="margin-top:24px;"><p>Un cinquième composant, le <strong>cloud-controller-manager</strong>, n'apparaît que sur un cluster hébergé chez un fournisseur. Il traduit les objets Kubernetes en ressources du fournisseur : un Service de type LoadBalancer devient un répartiteur de charge réel, un nœud supprimé de l'infrastructure est retiré du cluster. Sur notre installation, il est absent, et le module 14 montrera comment Minikube le remplace.</p></div>
+      <div class="prod"><span class="prod-lbl">Sur le terrain</span><div class="prod-txt">Ces quatre composants ne sont pas des services systemd : ce sont des <em>pods statiques</em> décrits dans <em>/etc/kubernetes/manifests</em> et démarrés directement par le kubelet. C'est vrai en production comme dans le nœud Minikube, où nous irons les ouvrir au module 3.</div></div>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="slide" data-n="5">
+    <div class="content">
+      <span class="step-label">Étape 05 · Nœuds de travail</span>
+      <h2>Les Trois Composants qui Exécutent</h2>
+      <div class="grid-3" style="margin-top:6px;">
+        <div class="mini-card"><h3>kubelet</h3><p>L'agent présent sur chaque nœud, en écoute sur le port 10250. Il demande à l'API server la liste des pods qui lui sont assignés, les fait démarrer par le runtime, remonte leur état et exécute les sondes.</p><span class="mini-tag">le contremaître</span></div>
+        <div class="mini-card"><h3>kube-proxy</h3><p>Programme les règles iptables ou IPVS du nœud pour que l'adresse virtuelle d'un Service soit redirigée vers l'un des pods qui le composent.</p><span class="mini-tag">l'aiguilleur</span></div>
+        <div class="mini-card"><h3>Runtime de conteneurs</h3><p>Le moteur qui télécharge les images et lance réellement les processus. Le kubelet lui parle par l'interface standard CRI.</p><span class="mini-tag">le moteur</span></div>
+      </div>
+      <div class="panel" style="margin-top:24px;">
+        <p>Le kubelet est le seul composant qui n'est pas conteneurisé : c'est un service systemd installé sur la machine, ou dans notre cas à l'intérieur du nœud Minikube. Il ne comprend qu'une chose, une <strong>spécification de pod</strong>, quelle qu'en soit la source : l'API server, ou un fichier posé dans <em>/etc/kubernetes/manifests</em>.</p>
+        <p>Depuis la version 1.24, Kubernetes ne sait plus parler à Docker directement : la couche d'adaptation <em>dockershim</em> a été retirée. Les runtimes utilisés aujourd'hui sont <strong>containerd</strong> et <strong>CRI-O</strong>. Docker reste parfaitement utilisable pour <em>construire</em> des images, et nous nous en servirons au module 5.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <div class="slide" data-n="6">
+    <div class="content">
+      <span class="step-label">Étape 06 · Vocabulaire</span>
+      <h2>Terminologie de Base</h2>
+      <div class="panel"><p>Six termes suffisent pour tenir une conversation. Tous les autres objets s'y raccrochent.</p></div>
+      <div class="grid-3" style="margin-top:24px;">
+        <div class="mini-card"><h3>Pod</h3><p>La plus petite unité déployable. Un ou plusieurs conteneurs qui partagent une adresse IP, des volumes et un cycle de vie.</p><span class="mini-tag">module 6</span></div>
+        <div class="mini-card"><h3>Service</h3><p>Une adresse IP et un nom DNS stables devant un groupe de pods éphémères, avec répartition de charge.</p><span class="mini-tag">module 14</span></div>
+        <div class="mini-card"><h3>Contrôleur</h3><p>Une boucle qui maintient un type d'objet conforme. ReplicaSet, Deployment, DaemonSet, Job en sont.</p><span class="mini-tag">module 11</span></div>
+        <div class="mini-card"><h3>Namespace</h3><p>Un cloisonnement logique des objets à l'intérieur d'un cluster. Support naturel des quotas et des droits.</p><span class="mini-tag">module 7</span></div>
+        <div class="mini-card"><h3>Label &amp; sélecteur</h3><p>Des étiquettes clé-valeur, et le moyen par lequel presque tous les objets se lient entre eux.</p><span class="mini-tag">module 6</span></div>
+        <div class="mini-card"><h3>Manifeste</h3><p>Le fichier YAML qui décrit un objet. Toujours quatre champs de tête : apiVersion, kind, metadata, spec.</p><span class="mini-tag">partout</span></div>
+      </div>
+      <div class="maison"><span class="maison-lbl">Le geste de base</span><div class="maison-txt">Toute la formation se ramène à écrire un manifeste, l'appliquer avec <em>kubectl apply -f</em>, puis observer l'écart entre ce qu'on a demandé et ce qui s'est passé avec <em>kubectl get</em> et <em>kubectl describe</em>.</div></div>
+    </div>
+  </div>
+
+  <!-- 7 -->
+  <div class="slide" data-n="7">
+    <div class="content">
+      <span class="step-label">Étape 07 · Le trajet</span>
+      <h2>Que se Passe-t-il Quand Vous Créez un Pod ?</h2>
+      <div class="panel"><ul>
+        <li><strong>1. kubectl</strong> transforme votre YAML en requête HTTPS vers l'API server, avec votre certificat client.</li>
+        <li><strong>2. L'API server</strong> vous authentifie, vérifie vos droits (RBAC), fait passer l'objet dans les contrôleurs d'admission, valide le schéma, puis écrit dans etcd. À cet instant, le pod existe mais n'est nulle part.</li>
+        <li><strong>3. Le scheduler</strong>, qui surveille les pods sans nœud, filtre les nœuds candidats, les note, choisit le meilleur et écrit ce choix dans l'objet pod.</li>
+        <li><strong>4. Le kubelet</strong> du nœud concerné voit qu'un pod lui est assigné. Il demande au runtime de télécharger les images et de démarrer les conteneurs.</li>
+        <li><strong>5. Le kubelet</strong> remonte l'état à l'API server, qui l'écrit dans etcd. <em>kubectl get pods</em> affiche Running.</li>
+      </ul></div>
+      <div class="prod"><span class="prod-lbl">Sur le terrain</span><div class="prod-txt">Retenez ce trajet, c'est votre grille de dépannage du module 16. Un pod bloqué en <em>Pending</em> n'a pas franchi l'étape 3 : le problème est un ordonnancement impossible. Un pod en <em>ImagePullBackOff</em> est bloqué à l'étape 4 : le problème est le runtime ou le registre.</div></div>
+    </div>
+  </div>
+
+  <!-- 8 -->
+  <div class="slide" data-n="8">
+    <div class="content">
+      <span class="step-label">Étape 08 · Dimensionnement</span>
+      <h2>Recommandations de Ressources</h2>
+      <div class="panel">
+        <p>Les besoins d'un plan de contrôle croissent avec le nombre d'objets et le rythme des changements, pas avec la charge applicative. Le facteur limitant est presque toujours <strong>etcd</strong>, qui écrit sur disque de façon synchrone à chaque modification.</p>
+      </div>
+      <div class="grid-3" style="margin-top:24px;">
+        <div class="mini-card"><h3>Formation</h3><p>2 vCPU et 2 Go alloués au nœud Minikube. Suffisant pour l'intégralité des ateliers de ces trois jours.</p><span class="mini-tag">notre VM</span></div>
+        <div class="mini-card"><h3>Production modeste</h3><p>Plan de contrôle sur 3 machines, 4 vCPU et 8 à 16 Go chacune, disque SSD à faible latence d'écriture pour etcd.</p><span class="mini-tag">jusqu'à ~50 nœuds</span></div>
+        <div class="mini-card"><h3>Limites du projet</h3><p>5 000 nœuds, 150 000 pods, 110 pods par nœud par défaut. Bien au-delà des besoins réels de la plupart des organisations.</p><span class="mini-tag">plafonds</span></div>
+      </div>
+      <div class="maison"><span class="maison-lbl">Deux règles de dimensionnement</span><div class="maison-txt">Le nombre de nœuds du plan de contrôle doit être <em>impair</em> (3 ou 5) parce qu'etcd fonctionne au quorum. Et un plan de contrôle qui tombe n'arrête pas les applications en cours : les pods continuent de tourner, mais plus rien ne peut être modifié ni réparé.</div></div>
+    </div>
+  </div>
+
+  <!-- 9 -->
+  <div class="slide" data-n="9">
+    <div class="content">
+      <span class="step-label">Étape 09 · QCM</span>
+      <h2>Vérifiez vos Acquis</h2>
+      <div class="qcm-grid">
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 01</div><div class="q-text">Le scheduler démarre les conteneurs sur le nœud qu'il a choisi.</div></div>
+            <div class="flip-back"><div class="b-title">Il écrit, c'est tout</div><p>Le scheduler se contente d'inscrire un nom de nœud dans l'objet pod. C'est le kubelet de ce nœud qui, voyant son nom, demande le démarrage au runtime.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 02</div><div class="q-text">Si etcd est perdu sans sauvegarde, le cluster est irrécupérable.</div></div>
+            <div class="flip-back"><div class="b-title">La seule perte définitive</div><p>etcd contient tout l'état déclaré. Les binaires se réinstallent, les nœuds se rejoignent, mais un etcd perdu signifie un cluster à reconstruire. La sauvegarde d'etcd est la première tâche d'exploitation à automatiser.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 03</div><div class="q-text">Kubernetes a besoin de Docker pour faire tourner des conteneurs.</div></div>
+            <div class="flip-back"><div class="b-title">Retiré en 1.24</div><p>Le kubelet dialogue avec un runtime conforme à l'interface CRI, en pratique containerd ou CRI-O. Docker reste utile pour construire des images, mais il n'est plus dans la chaîne d'exécution.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 04</div><div class="q-text">Un plan de contrôle arrêté ne coupe pas les applications déjà en cours.</div></div>
+            <div class="flip-back"><div class="b-title">Elles survivent</div><p>Les kubelets continuent de faire tourner les pods existants et de les redémarrer localement. En revanche, plus aucune création, mise à jour ni replanification n'est possible tant que l'API server est absent.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10 -->
+  <div class="slide" data-n="10">
+    <div class="content">
+      <span class="step-label">Étape 10 · Atelier</span>
+      <h2>Atelier 2 : la Vie Sans Orchestrateur</h2>
+      <div class="lab">
+        <span class="lab-badge">Atelier 02 · 30 minutes</span>
+        <h3>Manipuler des conteneurs à la main, et mesurer ce qui manque</h3>
+        <p>Avant d'installer Kubernetes, faisons son travail nous-mêmes. Chaque limite rencontrée ici correspond à une fonctionnalité que le module 3 va apporter.</p>
+        <div class="lab-section">
+          <div class="lab-section-title">1. Trois copies d'une application</div><div class="code"><span class="cmd">$</span> docker run -d --name saucisse1 -p 8080:80 nginx:1.27
+<span class="cmd">$</span> docker run -d --name saucisse2 -p 8081:80 nginx:1.27
+<span class="cmt">Que se passe-t-il si on reutilise le meme port ? Lisez l'erreur.</span>
+<span class="cmd">$</span> docker run -d --name saucisse3 -p 8080:80 nginx:1.27
+<span class="cmd">$</span> docker ps
+<span class="cmd">$</span> curl -s -o /dev/null -w "%{http_code}\n" localhost:8080 localhost:8081</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">2. Ce qu'est réellement l'isolation</div><div class="code"><span class="cmt">Un conteneur est un processus ordinaire de la VM</span>
+<span class="cmd">$</span> PID=$(docker inspect -f '{{.State.Pid}}' saucisse1) ; echo $PID
+<span class="cmd">$</span> ps -p $PID -o pid,user,comm
+<span class="cmt">Les espaces de noms : ce que le processus voit</span>
+<span class="cmd">$</span> sudo lsns -p $PID
+<span class="cmt">Les cgroups : ce qu'il a le droit de consommer</span>
+<span class="cmd">$</span> cat /proc/$PID/cgroup
+<span class="cmt">Une adresse IP par conteneur, sur un pont prive</span>
+<span class="cmd">$</span> docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' saucisse1 saucisse2</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">3. Personne ne surveille</div><div class="code"><span class="cmt">On tue le processus principal du conteneur</span>
+<span class="cmd">$</span> sudo kill -9 $PID
+<span class="cmt">Attendu : saucisse1 est Exited, et rien ne le relance</span>
+<span class="cmd">$</span> docker ps -a | grep saucisse1
+<span class="cmd">$</span> curl -s -o /dev/null -w "%{http_code}\n" localhost:8080</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">4. Le bilan, puis on nettoie</div>
+          <p>Quatre limites viennent d'apparaître, notez-les : les ports se disputent sur la machine hôte, aucune redirection ne répartit le trafic entre les copies, rien ne relance ce qui meurt, et tout ceci ne concerne qu'<em>une seule</em> machine. Kubernetes répond exactement à ces quatre points.</p>
+          <div class="code"><span class="cmd">$</span> docker rm -f saucisse1 saucisse2 2&gt;/dev/null ; docker ps -a</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 11 -->
+  <div class="slide" data-n="11">
+    <div class="content">
+      <span class="step-label">Étape 11 · Conclusion</span>
+      <h2>Récapitulatif du Module 2</h2>
+      <div class="panel"><ul>
+        <li><strong>Boucle de contrôle :</strong> état désiré comparé à l'état réel, correction permanente de l'écart.</li>
+        <li><strong>Plan de contrôle :</strong> API server (la porte), etcd (la mémoire), scheduler (le placement), controller-manager (les correcteurs).</li>
+        <li><strong>Nœud :</strong> kubelet (l'agent), kube-proxy (les règles réseau), runtime CRI (l'exécution).</li>
+        <li><strong>Circulation :</strong> tout passe par l'API server, seul lui écrit dans etcd, les nœuds appellent le plan de contrôle.</li>
+        <li><strong>Trajet d'un pod :</strong> kubectl, API server, etcd, scheduler, kubelet, runtime. C'est aussi la grille de dépannage.</li>
+      </ul></div>
+      <div class="maison"><span class="maison-lbl">Prochaine étape</span><div class="maison-txt">Vous avez vu les limites du conteneur seul et l'architecture qui les dépasse. Le module 3 installe Minikube, démarre le cluster, puis ouvre le nœud pour y retrouver, un par un, tous les composants décrits ici.</div></div>
+      <a href="module-3.html" class="next-mod">Module 3 : Installer le Cluster ></a>
+    </div>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="btn" onclick="navSlide(-1)">&lsaquo;</button>
+  <div class="dots" id="dots"></div>
+  <button class="btn" onclick="navSlide(1)">&rsaquo;</button>
+</div>
+
+<script>
+  let cur = 1;
+  const total = 11;
+  const dotsContainer = document.getElementById('dots');
+  for(let i=1; i<=total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 1 ? ' active' : '');
+    dot.onclick = () => goToSlide(i);
+    dotsContainer.appendChild(dot);
+  }
+  function navSlide(dir) { goToSlide(cur + dir); }
+  function goToSlide(n) {
+    if(n < 1 || n > total) return;
+    cur = n;
+    document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+    document.querySelector(`.slide[data-n="${cur}"]`).classList.add('active');
+    document.querySelectorAll('.dot').forEach((d, i) => { d.classList.toggle('active', i + 1 === cur); });
+  }
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowRight') navSlide(1);
+    if(e.key === 'ArrowLeft') navSlide(-1);
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 8 &middot; Patterns Multi-conteneurs & Jobs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117; --txt: #e6edf3; --muted: #8b949e;
+      --line: rgba(255, 255, 255, 0.1); --panel: rgba(255, 255, 255, 0.04);
+      --c1: #ffa657; --c2: #3fb950;
+      --font-display: 'Instrument Serif', Georgia, serif; --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--font-body); background: var(--bg); color: var(--txt); overflow: hidden; height: 100vh; }
+    .deck { width: 100vw; height: 100vh; position: relative; }
+    .slide { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transform: scale(0.97) translateY(20px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
+    .slide.active { opacity: 1; transform: scale(1) translateY(0); pointer-events: all; z-index: 10; }
+    .blobs { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.15; }
+    .blob-1 { top: -10%; right: -5%; width: 500px; height: 500px; background: var(--c1); }
+    .blob-2 { bottom: -10%; left: -5%; width: 400px; height: 400px; background: var(--c2); }
+    .content { position: relative; z-index: 2; width: 100%; max-width: 1100px; padding: 40px; max-height: 85vh; overflow-y: auto; }
+    .content::-webkit-scrollbar { width: 6px; }
+    .content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    .step-label { font-weight: 700; text-transform: uppercase; letter-spacing: 3px; color: var(--c1); font-size: 0.75rem; margin-bottom: 16px; display: block; opacity: 0.8; }
+    h1 { font-family: var(--font-display); font-size: clamp(3.5rem, 5vw, 4.5rem); font-style: italic; line-height: 1.05; margin: 0 0 30px; background: linear-gradient(135deg, #fff, var(--c1)); -webkit-background-clip: text; color: transparent; }
+    h2 { font-family: var(--font-display); font-size: clamp(2.5rem, 4vw, 3.2rem); font-style: italic; margin: 0 0 24px; color: #fff; font-weight: 400; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 35px 40px; line-height: 1.8; font-size: 1.1rem; color: #c9d1d9; backdrop-filter: blur(12px); box-shadow: 0 25px 50px rgba(0,0,0,0.2); }
+    .panel p { margin: 0 0 20px; } .panel p:last-child { margin-bottom: 0; }
+    .panel strong { color: #fff; font-weight: 500; }
+    .panel ul { margin: 0; padding-left: 20px; } .panel li { margin-bottom: 12px; }
+    .panel em { color: var(--c1); font-style: normal; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .mini-card { padding: 22px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 16px; }
+    .mini-card h3 { margin: 0 0 10px; font-size: 1.05rem; color: #fff; font-weight: 500; }
+    .mini-card p { margin: 0; font-size: 0.92rem; color: var(--muted); line-height: 1.6; }
+    .mini-card .mini-num { font-family: var(--font-display); font-style: italic; font-size: 2rem; color: var(--c1); line-height: 1; margin-bottom: 8px; }
+    .mini-card .mini-tag { font-family: var(--font-mono); font-size: 0.78rem; color: var(--c2); display: block; margin-top: 8px; }
+    .qcm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px; }
+    .flip-card { perspective: 1200px; height: 200px; cursor: pointer; }
+    .flip-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1); transform-style: preserve-3d; border-radius: 20px; }
+    .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
+    .flip-front, .flip-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; padding: 25px; display: flex; flex-direction: column; justify-content: center; backdrop-filter: blur(10px); }
+    .flip-front { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); transition: background 0.3s, border-color 0.3s; }
+    .flip-front:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.2); }
+    .q-num { font-size: 0.8rem; font-weight: 700; color: var(--c1); margin-bottom: 10px; letter-spacing: 1px; }
+    .q-text { font-size: 1.05rem; font-weight: 500; color: #fff; line-height: 1.5; }
+    .flip-back { transform: rotateY(180deg); font-size: 0.95rem; line-height: 1.6; border: 1px solid transparent; }
+    .b-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+    .flip-card[data-correct="true"] .flip-back { background: rgba(63, 185, 80, 0.08); border-color: rgba(63, 185, 80, 0.3); box-shadow: 0 10px 30px rgba(63, 185, 80, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="true"] .b-title { color: #3fb950; }
+    .flip-card[data-correct="true"] .b-title::after { content: 'Vrai'; font-size: 0.8rem; padding: 2px 8px; background: rgba(63, 185, 80, 0.2); border-radius: 10px; }
+    .flip-card[data-correct="false"] .flip-back { background: rgba(248, 81, 73, 0.08); border-color: rgba(248, 81, 73, 0.3); box-shadow: 0 10px 30px rgba(248, 81, 73, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="false"] .b-title { color: #f85149; }
+    .flip-card[data-correct="false"] .b-title::after { content: 'Faux'; font-size: 0.8rem; padding: 2px 8px; background: rgba(248, 81, 73, 0.2); border-radius: 10px; }
+    .maison { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.10); border-left: 3px solid var(--c1); border-radius: 12px; padding: 18px 24px; margin-top: 22px; }
+    .maison-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c1); margin-bottom: 8px; opacity: 0.85; }
+    .maison-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .maison-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .prod { background: rgba(63,185,80,0.05); border: 1px solid rgba(63,185,80,0.18); border-left: 3px solid var(--c2); border-radius: 12px; padding: 18px 24px; margin-top: 18px; }
+    .prod-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c2); margin-bottom: 8px; opacity: 0.9; }
+    .prod-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .prod-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .lab { background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border: 1px solid var(--c1); border-radius: 24px; padding: 35px 40px; box-shadow: 0 0 60px rgba(0,0,0,0.3); }
+    .lab-badge { display: inline-block; padding: 4px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--c1); border-radius: 50px; color: var(--c1); font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+    .lab h3 { font-family: var(--font-display); font-style: italic; font-size: 1.7rem; margin: 0 0 18px; color: #fff; font-weight: 400; }
+    .lab-section { margin-top: 20px; }
+    .lab-section-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--c1); margin-bottom: 10px; opacity: 0.85; }
+    .code { font-family: var(--font-mono); background: rgba(0,0,0,0.5); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; font-size: 0.88rem; color: #c9d1d9; overflow-x: auto; white-space: pre; line-height: 1.55; }
+    .code .cmt { color: #6e7681; font-style: italic; }
+    .code .cmd { color: var(--c1); }
+    .code .key { color: #79c0ff; }
+    .code .val { color: #a5d6ff; }
+    .lab ol, .lab ul { margin: 0; padding-left: 20px; line-height: 1.7; color: #c9d1d9; font-size: 1rem; }
+    .lab li { margin-bottom: 8px; }
+    .lab p { color: #c9d1d9; line-height: 1.7; margin: 0 0 12px; font-size: 1rem; }
+    .next-mod { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; text-decoration: none; color: var(--c1); font-weight: 500; font-size: 0.95rem; padding: 10px 22px; border: 1px solid var(--c1); border-radius: 50px; background: rgba(255,255,255,0.03); transition: all 0.3s; }
+    .next-mod:hover { background: rgba(255,255,255,0.09); transform: translateX(4px); }
+    .nav { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 20px; background: rgba(13, 17, 23, 0.7); padding: 12px 30px; border-radius: 50px; border: 1px solid var(--line); backdrop-filter: blur(20px); z-index: 100; }
+    .btn { background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; transition: color 0.2s; padding: 0 10px; }
+    .btn:hover { color: #fff; }
+    .dots { display: flex; gap: 10px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); cursor: pointer; transition: all 0.3s; }
+    .dot.active { background: var(--c1); transform: scale(1.4); box-shadow: 0 0 10px var(--c1); }
+    .home { position: fixed; top: 25px; left: 25px; color: var(--muted); text-decoration: none; font-size: 0.85rem; padding: 8px 16px; border: 1px solid var(--line); border-radius: 50px; background: rgba(13,17,23,0.6); backdrop-filter: blur(10px); transition: all 0.3s; z-index: 100; }
+    .home:hover { color: #fff; border-color: var(--c1); }
+  </style>
+</head>
+<body>
+
+<a href="index.html" class="home">&larr; Sommaire</a>
+
+<div class="deck">
+  <div class="blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+
+  <!-- 1 -->
+  <div class="slide active" data-n="1">
+    <div class="content">
+      <span class="step-label">Étape 01 · Le critère</span>
+      <h1>Patterns & Jobs</h1>
+      <div class="panel">
+        <p>Un pod peut contenir plusieurs conteneurs qui partagent l'adresse IP, les volumes déclarés et le sort commun. La question n'est jamais « est-ce possible », mais « est-ce justifié ».</p>
+        <p>Le critère de décision tient en une phrase : deux conteneurs vont dans le même pod s'ils doivent <strong>toujours</strong> vivre sur la même machine, démarrer ensemble, mourir ensemble et se mettre à l'échelle ensemble. Si l'un des quatre points est faux, ce sont deux pods reliés par un Service.</p>
+        <p>Trois patterns reviennent en permanence, et ils portent des noms que vous entendrez dans toutes les équipes : sidecar, adaptateur, ambassadeur. Ils décrivent la même mécanique appliquée à trois besoins différents.</p>
+      </div>
+      <div class="maison"><span class="maison-lbl">Le contre-exemple classique</span><div class="maison-txt">Mettre l'application et sa base de données dans le même pod. Elles ne se mettent pas à l'échelle au même rythme, ne se mettent pas à jour au même moment, et la base n'a aucune raison de mourir quand l'application redémarre. C'est <em>toujours</em> deux pods.</div></div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="slide" data-n="2">
+    <div class="content">
+      <span class="step-label">Étape 02 · Pattern 1</span>
+      <h2>Le Conteneur Sidecar</h2>
+      <div class="panel">
+        <p>Le sidecar <strong>ajoute une fonction</strong> au conteneur principal sans modifier son code ni son image. Il tourne à côté, pendant toute la vie du pod, et communique par un volume partagé ou par localhost.</p>
+        <p>Usages typiques : collecter des journaux écrits dans un fichier par une application ancienne qu'on ne peut pas modifier, recharger une configuration à chaud, synchroniser un dépôt Git dans un répertoire servi par un serveur web, gérer un certificat TLS.</p>
+      </div>
+      <div class="code" style="margin-top:22px;"><span class="key">spec</span>:
+  <span class="key">initContainers</span>:              <span class="cmt"># declaration moderne d'un sidecar</span>
+  - <span class="key">name</span>: <span class="val">collecteur</span>
+    <span class="key">image</span>: <span class="val">busybox:1.36</span>
+    <span class="key">restartPolicy</span>: <span class="val">Always</span>     <span class="cmt"># le rend permanent, et non bloquant</span>
+    <span class="key">command</span>: [<span class="val">"sh"</span>,<span class="val">"-c"</span>,<span class="val">"tail -F /var/log/app.log"</span>]
+    <span class="key">volumeMounts</span>: [{ <span class="key">name</span>: <span class="val">logs</span>, <span class="key">mountPath</span>: <span class="val">/var/log</span> }]
+  <span class="key">containers</span>:
+  - <span class="key">name</span>: <span class="val">application</span>
+    <span class="key">image</span>: <span class="val">mon-app:v1</span>
+    <span class="key">volumeMounts</span>: [{ <span class="key">name</span>: <span class="val">logs</span>, <span class="key">mountPath</span>: <span class="val">/var/log</span> }]
+  <span class="key">volumes</span>: [{ <span class="key">name</span>: <span class="val">logs</span>, <span class="key">emptyDir</span>: {} }]</div>
+      <div class="prod"><span class="prod-lbl">Sur le terrain</span><div class="prod-txt">Déclarer un sidecar comme <em>initContainer</em> avec <em>restartPolicy: Always</em> est la forme recommandée depuis les versions récentes de Kubernetes. Elle garantit deux choses que l'ancienne méthode ne donnait pas : le sidecar démarre <em>avant</em> l'application, et il s'arrête <em>après</em> elle. Un collecteur de journaux qui meurt en premier perd toujours les dernières lignes, celles qui expliquent la panne.</div></div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="slide" data-n="3">
+    <div class="content">
+      <span class="step-label">Étape 03 · Patterns 2 et 3</span>
+      <h2>Adaptateur & Ambassadeur</h2>
+      <div class="grid" style="margin-top:6px;">
+        <div class="mini-card"><h3>Adaptateur</h3><p>Il <strong>traduit ce qui sort</strong> de l'application vers un format attendu par le reste du système. L'application publie ses compteurs dans un format maison, l'adaptateur les expose au format Prometheus sur son propre port. Le cluster voit une interface uniforme, l'application n'a pas changé d'une ligne.</p><span class="mini-tag">normalise la sortie</span></div>
+        <div class="mini-card"><h3>Ambassadeur</h3><p>Il <strong>prend en charge ce qui sort</strong> vers l'extérieur. L'application se connecte à localhost, l'ambassadeur gère derrière le chiffrement, l'authentification, le basculement ou la répartition. Le cas d'école est le mandataire de base de données cloud, ou le mandataire d'un maillage de services.</p><span class="mini-tag">gère les sorties</span></div>
+      </div>
+      <div class="panel" style="margin-top:24px;">
+        <p>Ces trois patterns partagent une même promesse : <strong>ne pas toucher au code de l'application</strong>. C'est ce qui les rend précieux face à un logiciel ancien, propriétaire, ou simplement écrit par une autre équipe.</p>
+        <p>Ils partagent aussi le même coût, qu'il faut assumer. Chaque conteneur supplémentaire consomme de la mémoire et du CPU, multiplié par le nombre d'exemplaires du pod. Un sidecar de 100 Mo sur cinquante pods, ce sont 5 Go de mémoire consacrés à une fonction annexe.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="slide" data-n="4">
+    <div class="content">
+      <span class="step-label">Étape 04 · Précautions</span>
+      <h2>Points à Considérer</h2>
+      <div class="panel"><ul>
+        <li><strong>Le partage se fait par volume ou par localhost.</strong> Les conteneurs ne partagent ni leur système de fichiers racine, ni leurs variables d'environnement. Il faut déclarer un volume, souvent un <em>emptyDir</em>, et le monter des deux côtés.</li>
+        <li><strong>Chaque conteneur déclare ses propres ressources.</strong> Les requêtes du pod sont la somme de celles de ses conteneurs, et c'est cette somme que l'ordonnanceur doit trouver sur un nœud.</li>
+        <li><strong>Chaque conteneur a ses propres sondes.</strong> Un pod n'est prêt que si <em>tous</em> ses conteneurs le sont. Un sidecar mal réglé peut donc empêcher une application saine de recevoir du trafic.</li>
+        <li><strong>Un conteneur principal qui se termine arrête le pod</strong> si la politique de redémarrage le prévoit. Attention aux sidecars qui bouclent indéfiniment sur un pod destiné à se terminer, ils empêchent un Job d'aboutir.</li>
+        <li><strong>Les journaux sont par conteneur.</strong> <em>kubectl logs mon-pod</em> échoue et réclame l'option <em>-c</em> dès qu'il y en a plusieurs.</li>
+      </ul></div>
+      <div class="maison"><span class="maison-lbl">Règle de tri rapide</span><div class="maison-txt">Si vous hésitez, posez la question à l'envers : « ai-je un jour envie de mettre à l'échelle ces deux conteneurs séparément ? » Un oui, même lointain, tranche pour deux pods distincts.</div></div>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="slide" data-n="5">
+    <div class="content">
+      <span class="step-label">Étape 05 · Traitements par lots</span>
+      <h2>Jobs</h2>
+      <div class="panel">
+        <p>Un Deployment maintient des pods en vie indéfiniment. Un <strong>Job</strong> fait l'inverse : il exécute un traitement jusqu'à ce qu'il <strong>réussisse</strong>, puis s'arrête. Sauvegarde, migration de schéma, calcul de rapport, import de fichier.</p>
+      </div>
+      <div class="code" style="margin-top:22px;"><span class="key">apiVersion</span>: <span class="val">batch/v1</span>
+<span class="key">kind</span>: <span class="val">Job</span>
+<span class="key">metadata</span>: { <span class="key">name</span>: <span class="val">calcul</span> }
+<span class="key">spec</span>:
+  <span class="key">completions</span>: <span class="val">6</span>              <span class="cmt"># nombre total d'executions reussies attendues</span>
+  <span class="key">parallelism</span>: <span class="val">2</span>              <span class="cmt"># combien tournent en meme temps</span>
+  <span class="key">backoffLimit</span>: <span class="val">4</span>             <span class="cmt"># nombre d'echecs tolere avant abandon</span>
+  <span class="key">ttlSecondsAfterFinished</span>: <span class="val">300</span>  <span class="cmt"># menage automatique apres 5 minutes</span>
+  <span class="key">template</span>:
+    <span class="key">spec</span>:
+      <span class="key">restartPolicy</span>: <span class="val">OnFailure</span>   <span class="cmt"># jamais Always dans un Job</span>
+      <span class="key">containers</span>:
+      - <span class="key">name</span>: <span class="val">calcul</span>
+        <span class="key">image</span>: <span class="val">perl:5.34</span>
+        <span class="key">command</span>: [<span class="val">"perl"</span>,<span class="val">"-Mbignum=bpi"</span>,<span class="val">"-wle"</span>,<span class="val">"print bpi(500)"</span>]</div>
+      <div class="prod"><span class="prod-lbl">Sur le terrain</span><div class="prod-txt">Sans <em>ttlSecondsAfterFinished</em>, les pods terminés s'accumulent indéfiniment dans le cluster. Sur un traitement horaire, cela fait des milliers d'objets inutiles dans etcd au bout de quelques mois. C'est un champ à mettre systématiquement.</div></div>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <div class="slide" data-n="6">
+    <div class="content">
+      <span class="step-label">Étape 06 · Planification</span>
+      <h2>CronJobs</h2>
+      <div class="panel">
+        <p>Un <strong>CronJob</strong> crée un Job selon un calendrier, avec la syntaxe classique de cron. Il ajoute trois réglages qui font toute la différence en exploitation.</p>
+      </div>
+      <div class="code" style="margin-top:22px;"><span class="key">apiVersion</span>: <span class="val">batch/v1</span>
+<span class="key">kind</span>: <span class="val">CronJob</span>
+<span class="key">spec</span>:
+  <span class="key">schedule</span>: <span class="val">"*/5 * * * *"</span>          <span class="cmt"># toutes les 5 minutes</span>
+  <span class="key">concurrencyPolicy</span>: <span class="val">Forbid</span>        <span class="cmt"># Allow | Forbid | Replace</span>
+  <span class="key">startingDeadlineSeconds</span>: <span class="val">60</span>      <span class="cmt"># au-dela, l'occurrence est abandonnee</span>
+  <span class="key">successfulJobsHistoryLimit</span>: <span class="val">3</span>
+  <span class="key">failedJobsHistoryLimit</span>: <span class="val">1</span>
+  <span class="key">jobTemplate</span>:
+    <span class="key">spec</span>:
+      <span class="key">template</span>: { <span class="key">spec</span>: { ... } }</div>
+      <div class="panel" style="margin-top:22px;">
+        <p><strong>concurrencyPolicy</strong> est le réglage à ne pas manquer. Avec <em>Allow</em>, une exécution qui dure plus longtemps que l'intervalle se retrouve doublée, puis triplée. Un traitement de sauvegarde qui prend du retard peut ainsi saturer un cluster en quelques heures. <em>Forbid</em> saute l'occurrence, <em>Replace</em> tue la précédente.</p>
+      </div>
+      <div class="maison"><span class="maison-lbl">Le fuseau horaire</span><div class="maison-txt">Le calendrier s'évalue dans le fuseau du plan de contrôle, en pratique UTC. Un traitement prévu à 2 h du matin s'exécutera à 3 h ou 4 h selon la saison. Le champ <em>timeZone</em> permet de fixer explicitement un fuseau, et il vaut mieux le renseigner que de le découvrir un dimanche.</div></div>
+    </div>
+  </div>
+
+  <!-- 7 -->
+  <div class="slide" data-n="7">
+    <div class="content">
+      <span class="step-label">Étape 07 · QCM</span>
+      <h2>Vérifiez vos Acquis</h2>
+      <div class="qcm-grid">
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 01</div><div class="q-text">Deux conteneurs d'un même pod partagent leur système de fichiers.</div></div>
+            <div class="flip-back"><div class="b-title">Seulement le réseau</div><p>Ils partagent l'espace réseau et les volumes explicitement montés des deux côtés. Leurs systèmes de fichiers racine restent totalement séparés.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 02</div><div class="q-text">Un sidecar dont la sonde de disponibilité échoue empêche le pod de recevoir du trafic.</div></div>
+            <div class="flip-back"><div class="b-title">Tout ou rien</div><p>Un pod n'est prêt que si tous ses conteneurs le sont. Un conteneur annexe mal réglé peut donc mettre hors service une application parfaitement saine.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 03</div><div class="q-text">Dans un Job, restartPolicy peut valoir Always.</div></div>
+            <div class="flip-back"><div class="b-title">Refusé par l'API</div><p>Un Job doit pouvoir se terminer. Seuls <em>OnFailure</em> et <em>Never</em> sont acceptés, sans quoi le traitement ne s'achèverait jamais.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 04</div><div class="q-text">Un CronJob en concurrencyPolicy Allow peut empiler plusieurs exécutions simultanées.</div></div>
+            <div class="flip-back"><div class="b-title">Effet cumulatif</div><p>Si une exécution dure plus que l'intervalle, la suivante démarre quand même. Sur un traitement lourd, la charge s'accumule jusqu'à saturer le cluster.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8 -->
+  <div class="slide" data-n="8">
+    <div class="content">
+      <span class="step-label">Étape 08 · Atelier</span>
+      <h2>Atelier 8 : Sidecar, Job, CronJob</h2>
+      <div class="lab">
+        <span class="lab-badge">Atelier 08 · 35 minutes</span>
+        <h3>Un volume partagé entre deux conteneurs, puis des traitements par lots</h3>
+        <div class="lab-section">
+          <div class="lab-section-title">1. Une application qui écrit dans un fichier, un sidecar qui la publie</div><div class="code"><span class="cmd">$</span> cd ~/k8s &amp;&amp; cat &gt; sidecar.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata: { name: appli-legacy }
+spec:
+  initContainers:
+  - name: collecteur
+    image: busybox:1.36
+    restartPolicy: Always
+    command: ["sh","-c","tail -F /var/log/app.log"]
+    volumeMounts: [{ name: logs, mountPath: /var/log }]
+  containers:
+  - name: application
+    image: busybox:1.36
+    command: ["sh","-c","i=0; while true; do i=$((i+1));
+      echo \"$(date +%T) saucisse $i\" >> /var/log/app.log; sleep 5; done"]
+    volumeMounts: [{ name: logs, mountPath: /var/log }]
+  volumes: [{ name: logs, emptyDir: {} }]
+EOF
+<span class="cmd">$</span> kubectl apply -f sidecar.yaml
+<span class="cmt">L'application n'ecrit rien sur stdout : ses journaux sont vides</span>
+<span class="cmd">$</span> kubectl logs appli-legacy -c application
+<span class="cmt">Le sidecar, lui, publie le contenu du fichier</span>
+<span class="cmd">$</span> kubectl logs -f appli-legacy -c collecteur</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">2. Un Job parallèle</div><div class="code"><span class="cmd">$</span> cat &gt; job.yaml &lt;&lt;'EOF'
+apiVersion: batch/v1
+kind: Job
+metadata: { name: calcul }
+spec:
+  completions: 6
+  parallelism: 2
+  backoffLimit: 4
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: calcul
+        image: perl:5.34
+        command: ["perl","-Mbignum=bpi","-wle","print bpi(500)"]
+EOF
+<span class="cmd">$</span> kubectl apply -f job.yaml
+<span class="cmt">Observez : jamais plus de 2 pods en meme temps, 6 au total</span>
+<span class="cmd">$</span> kubectl get pods -l job-name=calcul -w
+<span class="cmd">$</span> kubectl get job calcul
+<span class="cmd">$</span> kubectl logs -l job-name=calcul --tail=1 | head -3</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">3. Un Job qui échoue, et la limite de reprise</div><div class="code"><span class="cmd">$</span> kubectl create job casse --image=busybox:1.36 --dry-run=client -o yaml \
+    -- sh -c 'exit 1' &gt; casse.yaml
+<span class="cmt">Ajoutez backoffLimit: 2 sous spec, puis appliquez</span>
+<span class="cmd">$</span> kubectl apply -f casse.yaml
+<span class="cmt">Attendu : des reprises espacees, puis l'abandon definitif du Job</span>
+<span class="cmd">$</span> kubectl get pods -l job-name=casse
+<span class="cmd">$</span> kubectl describe job casse | tail -8</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">4. Un CronJob</div><div class="code"><span class="cmd">$</span> kubectl create cronjob horloge --image=busybox:1.36 \
+    --schedule="*/1 * * * *" -- sh -c 'date; echo saucisse livree'
+<span class="cmt">Patientez deux minutes</span>
+<span class="cmd">$</span> kubectl get cronjob,jobs
+<span class="cmd">$</span> kubectl logs -l job-name=$(kubectl get jobs -o name | head -1 | cut -d/ -f2)
+<span class="cmd">$</span> kubectl delete cronjob horloge ; kubectl delete job calcul casse --ignore-not-found</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">Validation</div>
+          <p>Vous devez pouvoir montrer que les journaux du conteneur <em>application</em> sont vides alors que ceux du <em>collecteur</em> défilent, que le Job n'a jamais dépassé deux pods simultanés, et que le Job <em>casse</em> s'est arrêté après le nombre de reprises autorisé. Supprimez le pod <em>appli-legacy</em>.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9 -->
+  <div class="slide" data-n="9">
+    <div class="content">
+      <span class="step-label">Étape 09 · Conclusion</span>
+      <h2>Récapitulatif du Module 8</h2>
+      <div class="panel"><ul>
+        <li><strong>Même pod</strong> uniquement si les conteneurs doivent vivre, mourir et se mettre à l'échelle ensemble.</li>
+        <li><strong>Sidecar :</strong> ajoute une fonction. À déclarer en initContainer avec <em>restartPolicy: Always</em> pour maîtriser l'ordre de démarrage et d'arrêt.</li>
+        <li><strong>Adaptateur :</strong> normalise ce qui sort. <strong>Ambassadeur :</strong> prend en charge ce qui va vers l'extérieur.</li>
+        <li><strong>Coût :</strong> ressources multipliées par le nombre d'exemplaires, et un pod n'est prêt que si tous ses conteneurs le sont.</li>
+        <li><strong>Job :</strong> completions, parallelism, backoffLimit, et <em>ttlSecondsAfterFinished</em> pour le ménage. <strong>CronJob :</strong> surveiller concurrencyPolicy et le fuseau horaire.</li>
+      </ul></div>
+      <div class="maison"><span class="maison-lbl">Prochaine étape</span><div class="maison-txt">Le volume <em>emptyDir</em> de cet atelier a disparu avec le pod. Le module 9 traite du stockage qui survit : types de volumes, PersistentVolume, PersistentVolumeClaim et provisionnement dynamique.</div></div>
+      <a href="module-9.html" class="next-mod">Module 9 : Volumes & Stockage ></a>
+    </div>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="btn" onclick="navSlide(-1)">&lsaquo;</button>
+  <div class="dots" id="dots"></div>
+  <button class="btn" onclick="navSlide(1)">&rsaquo;</button>
+</div>
+
+<script>
+  let cur = 1;
+  const total = 9;
+  const dotsContainer = document.getElementById('dots');
+  for(let i=1; i<=total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 1 ? ' active' : '');
+    dot.onclick = () => goToSlide(i);
+    dotsContainer.appendChild(dot);
+  }
+  function navSlide(dir) { goToSlide(cur + dir); }
+  function goToSlide(n) {
+    if(n < 1 || n > total) return;
+    cur = n;
+    document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+    document.querySelector(`.slide[data-n="${cur}"]`).classList.add('active');
+    document.querySelectorAll('.dot').forEach((d, i) => { d.classList.toggle('active', i + 1 === cur); });
+  }
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowRight') navSlide(1);
+    if(e.key === 'ArrowLeft') navSlide(-1);
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 17 &middot; Cloture & Evaluation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117; --txt: #e6edf3; --muted: #8b949e;
+      --line: rgba(255, 255, 255, 0.1); --panel: rgba(255, 255, 255, 0.04);
+      --c1: #58a6ff; --c2: #3fb950;
+      --font-display: 'Instrument Serif', Georgia, serif; --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--font-body); background: var(--bg); color: var(--txt); overflow: hidden; height: 100vh; }
+    .deck { width: 100vw; height: 100vh; position: relative; }
+    .slide { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transform: scale(0.97) translateY(20px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
+    .slide.active { opacity: 1; transform: scale(1) translateY(0); pointer-events: all; z-index: 10; }
+    .blobs { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.15; }
+    .blob-1 { top: -10%; right: -5%; width: 500px; height: 500px; background: var(--c1); }
+    .blob-2 { bottom: -10%; left: -5%; width: 400px; height: 400px; background: var(--c2); }
+    .content { position: relative; z-index: 2; width: 100%; max-width: 1100px; padding: 40px; max-height: 85vh; overflow-y: auto; }
+    .content::-webkit-scrollbar { width: 6px; }
+    .content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    .step-label { font-weight: 700; text-transform: uppercase; letter-spacing: 3px; color: var(--c1); font-size: 0.75rem; margin-bottom: 16px; display: block; opacity: 0.8; }
+    h1 { font-family: var(--font-display); font-size: clamp(3.5rem, 5vw, 4.5rem); font-style: italic; line-height: 1.05; margin: 0 0 30px; background: linear-gradient(135deg, #fff, var(--c1)); -webkit-background-clip: text; color: transparent; }
+    h2 { font-family: var(--font-display); font-size: clamp(2.5rem, 4vw, 3.2rem); font-style: italic; margin: 0 0 24px; color: #fff; font-weight: 400; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 35px 40px; line-height: 1.8; font-size: 1.1rem; color: #c9d1d9; backdrop-filter: blur(12px); box-shadow: 0 25px 50px rgba(0,0,0,0.2); }
+    .panel p { margin: 0 0 20px; } .panel p:last-child { margin-bottom: 0; }
+    .panel strong { color: #fff; font-weight: 500; }
+    .panel ul { margin: 0; padding-left: 20px; } .panel li { margin-bottom: 12px; }
+    .panel em { color: var(--c1); font-style: normal; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .mini-card { padding: 22px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 16px; }
+    .mini-card h3 { margin: 0 0 10px; font-size: 1.05rem; color: #fff; font-weight: 500; }
+    .mini-card p { margin: 0; font-size: 0.92rem; color: var(--muted); line-height: 1.6; }
+    .mini-card .mini-num { font-family: var(--font-display); font-style: italic; font-size: 2rem; color: var(--c1); line-height: 1; margin-bottom: 8px; }
+    .mini-card .mini-tag { font-family: var(--font-mono); font-size: 0.78rem; color: var(--c2); display: block; margin-top: 8px; }
+    .qcm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px; }
+    .flip-card { perspective: 1200px; height: 200px; cursor: pointer; }
+    .flip-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1); transform-style: preserve-3d; border-radius: 20px; }
+    .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
+    .flip-front, .flip-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; padding: 25px; display: flex; flex-direction: column; justify-content: center; backdrop-filter: blur(10px); }
+    .flip-front { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); transition: background 0.3s, border-color 0.3s; }
+    .flip-front:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.2); }
+    .q-num { font-size: 0.8rem; font-weight: 700; color: var(--c1); margin-bottom: 10px; letter-spacing: 1px; }
+    .q-text { font-size: 1.05rem; font-weight: 500; color: #fff; line-height: 1.5; }
+    .flip-back { transform: rotateY(180deg); font-size: 0.95rem; line-height: 1.6; border: 1px solid transparent; }
+    .b-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+    .flip-card[data-correct="true"] .flip-back { background: rgba(63, 185, 80, 0.08); border-color: rgba(63, 185, 80, 0.3); box-shadow: 0 10px 30px rgba(63, 185, 80, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="true"] .b-title { color: #3fb950; }
+    .flip-card[data-correct="true"] .b-title::after { content: 'Vrai'; font-size: 0.8rem; padding: 2px 8px; background: rgba(63, 185, 80, 0.2); border-radius: 10px; }
+    .flip-card[data-correct="false"] .flip-back { background: rgba(248, 81, 73, 0.08); border-color: rgba(248, 81, 73, 0.3); box-shadow: 0 10px 30px rgba(248, 81, 73, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="false"] .b-title { color: #f85149; }
+    .flip-card[data-correct="false"] .b-title::after { content: 'Faux'; font-size: 0.8rem; padding: 2px 8px; background: rgba(248, 81, 73, 0.2); border-radius: 10px; }
+    .maison { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.10); border-left: 3px solid var(--c1); border-radius: 12px; padding: 18px 24px; margin-top: 22px; }
+    .maison-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c1); margin-bottom: 8px; opacity: 0.85; }
+    .maison-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .maison-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .prod { background: rgba(63,185,80,0.05); border: 1px solid rgba(63,185,80,0.18); border-left: 3px solid var(--c2); border-radius: 12px; padding: 18px 24px; margin-top: 18px; }
+    .prod-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c2); margin-bottom: 8px; opacity: 0.9; }
+    .prod-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .prod-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .lab { background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border: 1px solid var(--c1); border-radius: 24px; padding: 35px 40px; box-shadow: 0 0 60px rgba(0,0,0,0.3); }
+    .lab-badge { display: inline-block; padding: 4px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--c1); border-radius: 50px; color: var(--c1); font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+    .lab h3 { font-family: var(--font-display); font-style: italic; font-size: 1.7rem; margin: 0 0 18px; color: #fff; font-weight: 400; }
+    .lab-section { margin-top: 20px; }
+    .lab-section-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--c1); margin-bottom: 10px; opacity: 0.85; }
+    .code { font-family: var(--font-mono); background: rgba(0,0,0,0.5); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; font-size: 0.88rem; color: #c9d1d9; overflow-x: auto; white-space: pre; line-height: 1.55; }
+    .code .cmt { color: #6e7681; font-style: italic; }
+    .code .cmd { color: var(--c1); }
+    .code .key { color: #79c0ff; }
+    .code .val { color: #a5d6ff; }
+    .lab ol, .lab ul { margin: 0; padding-left: 20px; line-height: 1.7; color: #c9d1d9; font-size: 1rem; }
+    .lab li { margin-bottom: 8px; }
+    .lab p { color: #c9d1d9; line-height: 1.7; margin: 0 0 12px; font-size: 1rem; }
+    .next-mod { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; text-decoration: none; color: var(--c1); font-weight: 500; font-size: 0.95rem; padding: 10px 22px; border: 1px solid var(--c1); border-radius: 50px; background: rgba(255,255,255,0.03); transition: all 0.3s; }
+    .next-mod:hover { background: rgba(255,255,255,0.09); transform: translateX(4px); }
+    .nav { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 20px; background: rgba(13, 17, 23, 0.7); padding: 12px 30px; border-radius: 50px; border: 1px solid var(--line); backdrop-filter: blur(20px); z-index: 100; }
+    .btn { background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; transition: color 0.2s; padding: 0 10px; }
+    .btn:hover { color: #fff; }
+    .dots { display: flex; gap: 10px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); cursor: pointer; transition: all 0.3s; }
+    .dot.active { background: var(--c1); transform: scale(1.4); box-shadow: 0 0 10px var(--c1); }
+    .home { position: fixed; top: 25px; left: 25px; color: var(--muted); text-decoration: none; font-size: 0.85rem; padding: 8px 16px; border: 1px solid var(--line); border-radius: 50px; background: rgba(13,17,23,0.6); backdrop-filter: blur(10px); transition: all 0.3s; z-index: 100; }
+    .home:hover { color: #fff; border-color: var(--c1); }
+  </style>
+</head>
+<body>
+
+<a href="index.html" class="home">&larr; Sommaire</a>
+
+<div class="deck">
+  <div class="blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+
+  <!-- 1 -->
+  <div class="slide active" data-n="1">
+    <div class="content">
+      <span class="step-label">Étape 01 · Bilan</span>
+      <h1>Clôture & Évaluation</h1>
+      <div class="panel">
+        <p>Trois jours, seize ateliers, un cluster monté depuis une VM vide. Vous êtes partis d'un moteur de conteneurs isolé et vous avez terminé avec une application déployée, persistée, configurée, mise à jour sans coupure, cloisonnée, exposée derrière un nom de domaine et supervisée.</p>
+        <p>Ce qui compte pour la suite n'est pas la liste des commandes, qui se retrouve en ligne. C'est le modèle mental : un état désiré, des boucles de contrôle qui le réalisent, une API unique qui arbitre, et des objets qui se lient entre eux par étiquettes.</p>
+        <p>Ce dernier module fait le tour du programme, propose un questionnaire d'évaluation, une épreuve pratique de synthèse, puis une feuille de route.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="slide" data-n="2">
+    <div class="content">
+      <span class="step-label">Étape 02 · La carte</span>
+      <h2>Ce que Vous Avez Couvert</h2>
+      <div class="grid-3" style="margin-top:6px;">
+        <div class="mini-card"><h3>Architecture</h3><p>API server, etcd, scheduler, controller-manager, kubelet, kube-proxy, runtime CRI. Le trajet complet d'une création de pod.</p><span class="mini-tag">modules 2 et 3</span></div>
+        <div class="mini-card"><h3>Réseau</h3><p>Contrat CNI, une IP par pod, trois plages d'adresses, CoreDNS et les noms de service.</p><span class="mini-tag">module 4</span></div>
+        <div class="mini-card"><h3>Construction</h3><p>Images OCI, construction multi-étapes, registre local, politique de téléchargement.</p><span class="mini-tag">module 5</span></div>
+        <div class="mini-card"><h3>Exécution</h3><p>Deployment, ReplicaSet, sondes de vie, de disponibilité et de démarrage, conteneurs d'initialisation.</p><span class="mini-tag">modules 6 et 8</span></div>
+        <div class="mini-card"><h3>Conception</h3><p>Découplage, fugacité, requêtes et limites, classes de qualité de service, quotas et LimitRange.</p><span class="mini-tag">module 7</span></div>
+        <div class="mini-card"><h3>Données</h3><p>Volumes, PV et PVC, StorageClass, provisionnement dynamique, ConfigMaps et Secrets.</p><span class="mini-tag">modules 9 et 10</span></div>
+        <div class="mini-card"><h3>Exploitation</h3><p>Mise à jour progressive, retour arrière, mise à l'échelle manuelle et automatique.</p><span class="mini-tag">module 11</span></div>
+        <div class="mini-card"><h3>Sécurité</h3><p>Authentification, RBAC, admission, contextes de sécurité, niveaux de durcissement, politiques réseau.</p><span class="mini-tag">modules 12 et 13</span></div>
+        <div class="mini-card"><h3>Exposition</h3><p>Services et leurs quatre types, EndpointSlices, Ingress, contrôleur, Gateway API.</p><span class="mini-tag">modules 14 et 15</span></div>
+      </div>
+      <div class="maison"><span class="maison-lbl">Le fil rouge</span><div class="maison-txt">Tous ces objets répondent à la même mécanique : on déclare, un contrôleur observe l'écart, il agit. Face à un objet inconnu demain, posez-vous ces trois questions : que déclare-t-il, quel contrôleur le surveille, et quel écart corrige-t-il.</div></div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="slide" data-n="3">
+    <div class="content">
+      <span class="step-label">Étape 03 · Évaluation 1/3</span>
+      <h2>Questionnaire Final : Architecture & Réseau</h2>
+      <div class="qcm-grid">
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 01</div><div class="q-text">Seul l'API server écrit dans etcd ; tous les autres composants passent par lui.</div></div>
+            <div class="flip-back"><div class="b-title">Bus central</div><p>Cette règle explique pourquoi un API server indisponible fige le cluster sans arrêter les applications déjà en cours.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 02</div><div class="q-text">Le scheduler démarre les conteneurs sur le nœud qu'il a choisi.</div></div>
+            <div class="flip-back"><div class="b-title">Il écrit un nom</div><p>Il inscrit le nœud retenu dans l'objet pod. Le kubelet de ce nœud prend ensuite le relais auprès du runtime.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 03</div><div class="q-text">Deux pods différents peuvent écouter tous les deux sur le port 80.</div></div>
+            <div class="flip-back"><div class="b-title">Une IP par pod</div><p>Chaque pod a sa propre pile réseau. La restriction ne vaut qu'entre conteneurs d'un même pod, qui la partagent.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 04</div><div class="q-text">Un ping réussi vers l'IP d'un Service prouve qu'il fonctionne.</div></div>
+            <div class="flip-back"><div class="b-title">Adresse virtuelle</div><p>Elle n'existe sur aucune interface et ne répond pas à l'ICMP. Le seul test valable est une connexion TCP ou UDP sur le port du service.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="slide" data-n="4">
+    <div class="content">
+      <span class="step-label">Étape 04 · Évaluation 2/3</span>
+      <h2>Questionnaire Final : Charges & Données</h2>
+      <div class="qcm-grid">
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 05</div><div class="q-text">Une livenessProbe en échec retire le pod des destinataires du Service.</div></div>
+            <div class="flip-back"><div class="b-title">Elle redémarre</div><p>C'est la readinessProbe qui retire du trafic. La liveness tue et relance le conteneur, et doit donc rester la plus tolérante des deux.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 06</div><div class="q-text">Dépasser la limite mémoire tue le conteneur, dépasser la limite CPU le ralentit.</div></div>
+            <div class="flip-back"><div class="b-title">Compressible ou non</div><p>La mémoire ne se comprime pas : c'est l'OOMKilled, code 137. Le CPU se rationne, avec pour seul symptôme une latence.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 07</div><div class="q-text">Un rollback restaure le modèle de pod, mais pas les ConfigMaps modifiées entre-temps.</div></div>
+            <div class="flip-back"><div class="b-title">Portée limitée</div><p>Le retour arrière agit sur le Deployment. Configuration, secrets et schémas de base restent dans leur état courant.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 08</div><div class="q-text">Un Secret monté en volume est chiffré sur le disque du nœud.</div></div>
+            <div class="flip-back"><div class="b-title">En mémoire, pas chiffré</div><p>Le contenu est écrit dans un système de fichiers en mémoire, ce qui évite le disque, mais il reste en clair. Le chiffrement concerne etcd et doit être activé.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="slide" data-n="5">
+    <div class="content">
+      <span class="step-label">Étape 05 · Évaluation 3/3</span>
+      <h2>Questionnaire Final : Sécurité & Exploitation</h2>
+      <div class="qcm-grid">
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 09</div><div class="q-text">RBAC est purement additif : aucune règle ne permet d'interdire.</div></div>
+            <div class="flip-back"><div class="b-title">Tout est refusé au départ</div><p>On retire un droit en supprimant la liaison qui l'accordait. Une permission de trop suffit à ouvrir l'accès, rien ne la contredira.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 10</div><div class="q-text">Une NetworkPolicy peut être acceptée par l'API sans être appliquée.</div></div>
+            <div class="flip-back"><div class="b-title">Dépend du plugin</div><p>Si le CNI n'implémente pas les politiques, l'objet est stocké et rien n'est filtré. Testez toujours un refus avant de faire confiance.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 11</div><div class="q-text">Un Ingress route directement vers les pods qu'il sélectionne.</div></div>
+            <div class="flip-back"><div class="b-title">Toujours vers un Service</div><p>L'Ingress se pose au-dessus des Services. Et sans contrôleur installé, il ne route rien du tout.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 12</div><div class="q-text">Un pod en Pending n'a pas franchi l'étape d'ordonnancement.</div></div>
+            <div class="flip-back"><div class="b-title">Grille de lecture</div><p>Ressources, souillures, sélecteurs ou volumes. Les événements du pod nomment la contrainte qui a éliminé chaque nœud candidat.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <div class="slide" data-n="6">
+    <div class="content">
+      <span class="step-label">Étape 06 · Épreuve finale</span>
+      <h2>Atelier de Synthèse</h2>
+      <div class="lab">
+        <span class="lab-badge">Épreuve pratique · 45 minutes · sans support</span>
+        <h3>Déployer une application complète de bout en bout</h3>
+        <p>Dans un namespace <em>saucisse-final</em> que vous créez, réalisez l'ensemble des points suivants. Aucun indice, aucun manifeste fourni. Les commandes <em>kubectl explain</em> et <em>--dry-run=client -o yaml</em> sont vos alliées.</p>
+        <div class="lab-section">
+          <div class="lab-section-title">Cahier des charges</div>
+          <ol>
+            <li>Un namespace <em>saucisse-final</em>, avec des valeurs de ressources par défaut et un plafond global de 2 processeurs.</li>
+            <li>Un Deployment de l'image <em>saucisse:v1</em>, à 3 exemplaires, avec requêtes et limites déclarées.</li>
+            <li>Une sonde de disponibilité et une sonde de vie sur <em>/healthz</em>, la seconde plus tolérante que la première.</li>
+            <li>Un contexte de sécurité sans root, sans élévation de privilèges, sans aucune capacité.</li>
+            <li>Une variable d'environnement <em>APP_VERSION</em> issue d'une ConfigMap, et un mot de passe factice monté depuis un Secret.</li>
+            <li>Un volume persistant de 1 Gio monté sur <em>/data</em>.</li>
+            <li>Un Service ClusterIP, puis un accès depuis l'extérieur de votre choix.</li>
+            <li>Une NetworkPolicy qui n'autorise en entrée que les pods portant l'étiquette <em>role: client</em>.</li>
+            <li>Un compte de service dédié, autorisé à lister les pods du seul namespace <em>saucisse-final</em>.</li>
+            <li>Une mise à jour vers <em>v2</em> sans jamais descendre sous 3 exemplaires disponibles, suivie d'un retour arrière.</li>
+          </ol>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">Critères de réussite</div>
+          <p>Les 3 pods sont Running et Ready, l'application répond depuis l'extérieur du cluster, un pod sans la bonne étiquette est bloqué au niveau réseau, <em>kubectl auth can-i</em> confirme les droits du compte de service, et l'historique du déploiement montre la mise à jour puis le retour arrière.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7 -->
+  <div class="slide" data-n="7">
+    <div class="content">
+      <span class="step-label">Étape 07 · La suite</span>
+      <h2>Aller Plus Loin</h2>
+      <div class="panel"><p>Ce qui n'a pas été traité ici, par ordre d'utilité pour un administrateur qui reprend son poste demain.</p></div>
+      <div class="grid-3" style="margin-top:24px;">
+        <div class="mini-card"><h3>Sauvegarde d'etcd</h3><p>La seule perte irréversible du cluster. Automatisez <em>etcdctl snapshot save</em> et testez la restauration au moins une fois.</p><span class="mini-tag">priorité 1</span></div>
+        <div class="mini-card"><h3>Mise à jour du cluster</h3><p>Plan de contrôle puis nœuds, un à la fois, avec vidange. Une version mineure à la fois, jamais deux d'un coup.</p><span class="mini-tag">priorité 2</span></div>
+        <div class="mini-card"><h3>Haute disponibilité</h3><p>Trois nœuds de plan de contrôle, un répartiteur devant les API servers, un quorum etcd impair.</p><span class="mini-tag">production</span></div>
+        <div class="mini-card"><h3>StatefulSets</h3><p>Identité stable, volume propre à chaque exemplaire, démarrage et arrêt ordonnés. Pour les bases et les grappes.</p><span class="mini-tag">charges à état</span></div>
+        <div class="mini-card"><h3>Helm et Kustomize</h3><p>Paqueter et paramétrer des ensembles de manifestes, plutôt que de dupliquer du YAML par environnement.</p><span class="mini-tag">outillage</span></div>
+        <div class="mini-card"><h3>GitOps et opérateurs</h3><p>Le dépôt décrit l'état désiré, un agent l'applique en continu. Les opérateurs étendent ce principe aux applications métier via des CRD.</p><span class="mini-tag">la suite logique</span></div>
+      </div>
+      <div class="maison"><span class="maison-lbl">Pour préparer le CKA</span><div class="maison-txt">L'examen est chronométré et entièrement pratique. Deux réflexes valent des points : travailler avec l'alias <em>k</em> et la complétion, et générer les manifestes avec <em>--dry-run=client -o yaml</em> plutôt que de les écrire à la main. Entraînez-vous sur un cluster réel, pas sur des questionnaires.</div></div>
+    </div>
+  </div>
+
+  <!-- 8 -->
+  <div class="slide" data-n="8">
+    <div class="content">
+      <span class="step-label">Étape 08 · Fin</span>
+      <h2>Clôture</h2>
+      <div class="panel">
+        <p>Votre cluster reste utilisable après la formation. <em>minikube stop</em> le met en veille en conservant tout, <em>minikube start</em> le réveille dans l'état où vous l'avez laissé. Les manifestes écrits pendant ces trois jours sont dans <em>~/k8s</em> : conservez-les, ils constituent votre première bibliothèque de référence.</p>
+        <p>Un conseil pour la suite : reconstruisez ce cluster une fois seul, sans le support, dans les deux semaines. C'est ce passage qui transforme une formation suivie en compétence acquise.</p>
+      </div>
+      <div class="code" style="margin-top:22px;"><span class="cmt">Mettre en veille en conservant tout</span>
+<span class="cmd">$</span> minikube stop
+<span class="cmt">Repartir de zero, quand vous voudrez recommencer</span>
+<span class="cmd">$</span> minikube delete
+<span class="cmd">$</span> minikube start --driver=docker --cpus=2 --memory=3g --cni=calico</div>
+      <div class="maison"><span class="maison-lbl">Merci</span><div class="maison-txt">Merci pour votre attention et pour la qualité des échanges pendant ces trois jours. Les questions restées ouvertes sont bienvenues, et les retours sur le déroulé de la formation aussi.</div></div>
+      <a href="index.html" class="next-mod">Retour au sommaire ></a>
+    </div>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="btn" onclick="navSlide(-1)">&lsaquo;</button>
+  <div class="dots" id="dots"></div>
+  <button class="btn" onclick="navSlide(1)">&rsaquo;</button>
+</div>
+
+<script>
+  let cur = 1;
+  const total = 8;
+  const dotsContainer = document.getElementById('dots');
+  for(let i=1; i<=total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 1 ? ' active' : '');
+    dot.onclick = () => goToSlide(i);
+    dotsContainer.appendChild(dot);
+  }
+  function navSlide(dir) { goToSlide(cur + dir); }
+  function goToSlide(n) {
+    if(n < 1 || n > total) return;
+    cur = n;
+    document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+    document.querySelector(`.slide[data-n="${cur}"]`).classList.add('active');
+    document.querySelectorAll('.dot').forEach((d, i) => { d.classList.toggle('active', i + 1 === cur); });
+  }
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowRight') navSlide(1);
+    if(e.key === 'ArrowLeft') navSlide(-1);
+  });
+</script>
+</body>
+</html>

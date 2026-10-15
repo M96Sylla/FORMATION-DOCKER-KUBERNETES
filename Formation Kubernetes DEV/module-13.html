@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 13 &middot; Securite : Charges & Reseau</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117; --txt: #e6edf3; --muted: #8b949e;
+      --line: rgba(255, 255, 255, 0.1); --panel: rgba(255, 255, 255, 0.04);
+      --c1: #bc8cff; --c2: #3fb950;
+      --font-display: 'Instrument Serif', Georgia, serif; --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--font-body); background: var(--bg); color: var(--txt); overflow: hidden; height: 100vh; }
+    .deck { width: 100vw; height: 100vh; position: relative; }
+    .slide { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transform: scale(0.97) translateY(20px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
+    .slide.active { opacity: 1; transform: scale(1) translateY(0); pointer-events: all; z-index: 10; }
+    .blobs { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.15; }
+    .blob-1 { top: -10%; right: -5%; width: 500px; height: 500px; background: var(--c1); }
+    .blob-2 { bottom: -10%; left: -5%; width: 400px; height: 400px; background: var(--c2); }
+    .content { position: relative; z-index: 2; width: 100%; max-width: 1100px; padding: 40px; max-height: 85vh; overflow-y: auto; }
+    .content::-webkit-scrollbar { width: 6px; }
+    .content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    .step-label { font-weight: 700; text-transform: uppercase; letter-spacing: 3px; color: var(--c1); font-size: 0.75rem; margin-bottom: 16px; display: block; opacity: 0.8; }
+    h1 { font-family: var(--font-display); font-size: clamp(3.5rem, 5vw, 4.5rem); font-style: italic; line-height: 1.05; margin: 0 0 30px; background: linear-gradient(135deg, #fff, var(--c1)); -webkit-background-clip: text; color: transparent; }
+    h2 { font-family: var(--font-display); font-size: clamp(2.5rem, 4vw, 3.2rem); font-style: italic; margin: 0 0 24px; color: #fff; font-weight: 400; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 35px 40px; line-height: 1.8; font-size: 1.1rem; color: #c9d1d9; backdrop-filter: blur(12px); box-shadow: 0 25px 50px rgba(0,0,0,0.2); }
+    .panel p { margin: 0 0 20px; } .panel p:last-child { margin-bottom: 0; }
+    .panel strong { color: #fff; font-weight: 500; }
+    .panel ul { margin: 0; padding-left: 20px; } .panel li { margin-bottom: 12px; }
+    .panel em { color: var(--c1); font-style: normal; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .mini-card { padding: 22px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 16px; }
+    .mini-card h3 { margin: 0 0 10px; font-size: 1.05rem; color: #fff; font-weight: 500; }
+    .mini-card p { margin: 0; font-size: 0.92rem; color: var(--muted); line-height: 1.6; }
+    .mini-card .mini-num { font-family: var(--font-display); font-style: italic; font-size: 2rem; color: var(--c1); line-height: 1; margin-bottom: 8px; }
+    .mini-card .mini-tag { font-family: var(--font-mono); font-size: 0.78rem; color: var(--c2); display: block; margin-top: 8px; }
+    .qcm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px; }
+    .flip-card { perspective: 1200px; height: 200px; cursor: pointer; }
+    .flip-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1); transform-style: preserve-3d; border-radius: 20px; }
+    .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
+    .flip-front, .flip-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; padding: 25px; display: flex; flex-direction: column; justify-content: center; backdrop-filter: blur(10px); }
+    .flip-front { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); transition: background 0.3s, border-color 0.3s; }
+    .flip-front:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.2); }
+    .q-num { font-size: 0.8rem; font-weight: 700; color: var(--c1); margin-bottom: 10px; letter-spacing: 1px; }
+    .q-text { font-size: 1.05rem; font-weight: 500; color: #fff; line-height: 1.5; }
+    .flip-back { transform: rotateY(180deg); font-size: 0.95rem; line-height: 1.6; border: 1px solid transparent; }
+    .b-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+    .flip-card[data-correct="true"] .flip-back { background: rgba(63, 185, 80, 0.08); border-color: rgba(63, 185, 80, 0.3); box-shadow: 0 10px 30px rgba(63, 185, 80, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="true"] .b-title { color: #3fb950; }
+    .flip-card[data-correct="true"] .b-title::after { content: 'Vrai'; font-size: 0.8rem; padding: 2px 8px; background: rgba(63, 185, 80, 0.2); border-radius: 10px; }
+    .flip-card[data-correct="false"] .flip-back { background: rgba(248, 81, 73, 0.08); border-color: rgba(248, 81, 73, 0.3); box-shadow: 0 10px 30px rgba(248, 81, 73, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="false"] .b-title { color: #f85149; }
+    .flip-card[data-correct="false"] .b-title::after { content: 'Faux'; font-size: 0.8rem; padding: 2px 8px; background: rgba(248, 81, 73, 0.2); border-radius: 10px; }
+    .maison { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.10); border-left: 3px solid var(--c1); border-radius: 12px; padding: 18px 24px; margin-top: 22px; }
+    .maison-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c1); margin-bottom: 8px; opacity: 0.85; }
+    .maison-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .maison-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .prod { background: rgba(63,185,80,0.05); border: 1px solid rgba(63,185,80,0.18); border-left: 3px solid var(--c2); border-radius: 12px; padding: 18px 24px; margin-top: 18px; }
+    .prod-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c2); margin-bottom: 8px; opacity: 0.9; }
+    .prod-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .prod-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .lab { background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border: 1px solid var(--c1); border-radius: 24px; padding: 35px 40px; box-shadow: 0 0 60px rgba(0,0,0,0.3); }
+    .lab-badge { display: inline-block; padding: 4px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--c1); border-radius: 50px; color: var(--c1); font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+    .lab h3 { font-family: var(--font-display); font-style: italic; font-size: 1.7rem; margin: 0 0 18px; color: #fff; font-weight: 400; }
+    .lab-section { margin-top: 20px; }
+    .lab-section-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--c1); margin-bottom: 10px; opacity: 0.85; }
+    .code { font-family: var(--font-mono); background: rgba(0,0,0,0.5); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; font-size: 0.88rem; color: #c9d1d9; overflow-x: auto; white-space: pre; line-height: 1.55; }
+    .code .cmt { color: #6e7681; font-style: italic; }
+    .code .cmd { color: var(--c1); }
+    .code .key { color: #79c0ff; }
+    .code .val { color: #a5d6ff; }
+    .lab ol, .lab ul { margin: 0; padding-left: 20px; line-height: 1.7; color: #c9d1d9; font-size: 1rem; }
+    .lab li { margin-bottom: 8px; }
+    .lab p { color: #c9d1d9; line-height: 1.7; margin: 0 0 12px; font-size: 1rem; }
+    .next-mod { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; text-decoration: none; color: var(--c1); font-weight: 500; font-size: 0.95rem; padding: 10px 22px; border: 1px solid var(--c1); border-radius: 50px; background: rgba(255,255,255,0.03); transition: all 0.3s; }
+    .next-mod:hover { background: rgba(255,255,255,0.09); transform: translateX(4px); }
+    .nav { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 20px; background: rgba(13, 17, 23, 0.7); padding: 12px 30px; border-radius: 50px; border: 1px solid var(--line); backdrop-filter: blur(20px); z-index: 100; }
+    .btn { background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; transition: color 0.2s; padding: 0 10px; }
+    .btn:hover { color: #fff; }
+    .dots { display: flex; gap: 10px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); cursor: pointer; transition: all 0.3s; }
+    .dot.active { background: var(--c1); transform: scale(1.4); box-shadow: 0 0 10px var(--c1); }
+    .home { position: fixed; top: 25px; left: 25px; color: var(--muted); text-decoration: none; font-size: 0.85rem; padding: 8px 16px; border: 1px solid var(--line); border-radius: 50px; background: rgba(13,17,23,0.6); backdrop-filter: blur(10px); transition: all 0.3s; z-index: 100; }
+    .home:hover { color: #fff; border-color: var(--c1); }
+  </style>
+</head>
+<body>
+
+<a href="index.html" class="home">&larr; Sommaire</a>
+
+<div class="deck">
+  <div class="blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+
+  <!-- 1 -->
+  <div class="slide active" data-n="1">
+    <div class="content">
+      <span class="step-label">Étape 01 · Le rappel</span>
+      <h1>Sécurité des Charges & du Réseau</h1>
+      <div class="panel">
+        <p>Un conteneur n'est pas une machine virtuelle. C'est un processus de la machine hôte, isolé par des mécanismes du noyau, et il partage ce noyau avec tous les autres. L'atelier 2 l'a montré : le processus apparaissait dans un simple <em>ps</em> sur la VM.</p>
+        <p>La conséquence est directe. Un conteneur qui tourne en root avec des privilèges étendus est, à quelques barrières près, root sur le nœud. Il peut monter le système de fichiers de l'hôte, lire les certificats du kubelet, et de là prendre le contrôle du cluster.</p>
+        <p>Deux mécanismes traitent ce risque : le <strong>contexte de sécurité</strong>, qui contraint chaque pod, et l'<strong>admission de sécurité des pods</strong>, qui impose un niveau minimal à tout un namespace. La seconde moitié du module traite du réseau, où la situation par défaut est tout aussi ouverte.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="slide" data-n="2">
+    <div class="content">
+      <span class="step-label">Étape 02 · Le conteneur</span>
+      <h2>Contextes de Sécurité</h2>
+      <div class="panel"><p>Le <em>securityContext</em> se déclare au niveau du pod (il s'applique alors à tous ses conteneurs) ou au niveau d'un conteneur, qui l'emporte en cas de conflit.</p></div>
+      <div class="code" style="margin-top:22px;"><span class="key">spec</span>:
+  <span class="key">securityContext</span>:              <span class="cmt"># niveau pod</span>
+    <span class="key">runAsNonRoot</span>: <span class="val">true</span>
+    <span class="key">runAsUser</span>: <span class="val">10001</span>
+    <span class="key">fsGroup</span>: <span class="val">10001</span>              <span class="cmt"># groupe proprietaire des volumes montes</span>
+    <span class="key">seccompProfile</span>: { <span class="key">type</span>: <span class="val">RuntimeDefault</span> }
+  <span class="key">containers</span>:
+  - <span class="key">name</span>: <span class="val">app</span>
+    <span class="key">securityContext</span>:            <span class="cmt"># niveau conteneur, prioritaire</span>
+      <span class="key">allowPrivilegeEscalation</span>: <span class="val">false</span>
+      <span class="key">readOnlyRootFilesystem</span>: <span class="val">true</span>
+      <span class="key">capabilities</span>:
+        <span class="key">drop</span>: [<span class="val">"ALL"</span>]
+        <span class="key">add</span>: [<span class="val">"NET_BIND_SERVICE"</span>]   <span class="cmt"># uniquement si port &lt; 1024</span></div>
+      <div class="panel" style="margin-top:22px;">
+        <p>Les quatre réglages qui comptent, par ordre d'efficacité : <strong>ne pas tourner en root</strong>, <strong>interdire l'élévation de privilèges</strong>, <strong>abandonner toutes les capacités</strong> puis n'en ajouter que le strict nécessaire, et <strong>monter la racine en lecture seule</strong>. Ce dernier point impose de déclarer un <em>emptyDir</em> pour les répertoires temporaires, ce qui est une bonne discipline en soi.</p>
+      </div>
+      <div class="prod"><span class="prod-lbl">Sur le terrain</span><div class="prod-txt">Le drapeau <em>privileged: true</em> désactive pratiquement toutes les protections et donne au conteneur un accès direct aux périphériques du nœud. Il a des usages légitimes, presque tous du côté des agents d'infrastructure. Sur une application métier, c'est un signal d'alerte qui mérite une question en revue de code.</div></div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="slide" data-n="3">
+    <div class="content">
+      <span class="step-label">Étape 03 · Le namespace</span>
+      <h2>Stratégies de Sécurité des Pods</h2>
+      <div class="panel">
+        <p>Déclarer un bon contexte de sécurité reste facultatif, donc oublié. L'<strong>admission de sécurité des pods</strong> impose un niveau à tout un namespace, par de simples étiquettes. Elle remplace les anciennes <em>PodSecurityPolicy</em>, supprimées de Kubernetes depuis la version 1.25.</p>
+      </div>
+      <div class="grid-3" style="margin-top:24px;">
+        <div class="mini-card"><h3>privileged</h3><p>Aucune restriction. Réservé aux namespaces d'infrastructure qui hébergent des agents système.</p><span class="mini-tag">tout permis</span></div>
+        <div class="mini-card"><h3>baseline</h3><p>Interdit les élévations connues : mode privilégié, espaces de noms de l'hôte, capacités dangereuses. Compatible avec la plupart des images existantes.</p><span class="mini-tag">le minimum</span></div>
+        <div class="mini-card"><h3>restricted</h3><p>Applique les bonnes pratiques de durcissement : non-root obligatoire, aucune capacité, pas d'élévation, profil seccomp. Exige des images conçues pour.</p><span class="mini-tag">la cible</span></div>
+      </div>
+      <div class="code" style="margin-top:22px;"><span class="cmt">Trois modes, combinables : refuser, avertir, journaliser</span>
+<span class="cmd">$</span> kubectl label ns production pod-security.kubernetes.io/enforce=restricted
+<span class="cmd">$</span> kubectl label ns production pod-security.kubernetes.io/warn=restricted
+<span class="cmd">$</span> kubectl label ns production pod-security.kubernetes.io/audit=restricted</div>
+      <div class="maison"><span class="maison-lbl">La méthode de migration</span><div class="maison-txt">On ne pose jamais <em>enforce</em> en premier sur un namespace existant, sous peine de bloquer tous les déploiements. On commence par <em>warn</em> et <em>audit</em>, on lit les avertissements pendant quelques semaines, on corrige les manifestes, et on bascule <em>enforce</em> seulement quand plus rien ne remonte.</div></div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="slide" data-n="4">
+    <div class="content">
+      <span class="step-label">Étape 04 · Le réseau</span>
+      <h2>Politiques de Sécurité Réseau</h2>
+      <div class="panel">
+        <p>Voici la situation par défaut, et elle surprend toujours : <strong>tout pod peut joindre tout autre pod du cluster</strong>, sur n'importe quel port, dans n'importe quel namespace. Le réseau est entièrement plat et ouvert. Une application compromise en zone publique peut donc parler directement à la base de données de la comptabilité.</p>
+        <p>La <strong>NetworkPolicy</strong> est l'objet qui referme cela. Son fonctionnement repose sur trois règles à mémoriser ensemble :</p>
+        <ul>
+          <li>Une politique <strong>sélectionne des pods</strong> par leurs étiquettes. Les pods non sélectionnés ne sont pas concernés.</li>
+          <li>Dès qu'un pod est sélectionné par au moins une politique, il passe en mode <strong>refus par défaut</strong> pour la direction concernée (entrée ou sortie).</li>
+          <li>Les politiques sont <strong>additives</strong>, comme RBAC. Elles n'interdisent rien, elles autorisent. L'union de toutes les règles qui visent un pod définit ce qui passe.</li>
+        </ul>
+      </div>
+      <div class="prod"><span class="prod-lbl">Sur le terrain</span><div class="prod-txt">Une NetworkPolicy n'a d'effet que si le plugin CNI l'implémente. Certains l'acceptent sans jamais l'appliquer, ce qui donne l'illusion parfaite d'un cluster protégé. C'est exactement pour cette raison que nous avons imposé <em>--cni=calico</em> au module 3. Sur un cluster inconnu, testez toujours une politique de refus avant de faire confiance à la suivante.</div></div>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="slide" data-n="5">
+    <div class="content">
+      <span class="step-label">Étape 05 · Les manifestes</span>
+      <h2>Refus par Défaut, puis Ouvertures</h2>
+      <div class="code"><span class="cmt">1. La politique fondatrice : tout refuser en entree dans le namespace</span>
+<span class="key">apiVersion</span>: <span class="val">networking.k8s.io/v1</span>
+<span class="key">kind</span>: <span class="val">NetworkPolicy</span>
+<span class="key">metadata</span>: { <span class="key">name</span>: <span class="val">refus-par-defaut</span>, <span class="key">namespace</span>: <span class="val">saucisse</span> }
+<span class="key">spec</span>:
+  <span class="key">podSelector</span>: {}            <span class="cmt"># selecteur vide = TOUS les pods du namespace</span>
+  <span class="key">policyTypes</span>: [<span class="val">Ingress</span>]
+                              <span class="cmt"># aucune regle 'ingress' : donc rien n'est autorise</span>
+---
+<span class="cmt">2. L'ouverture ciblee : seule l'application joint la base, sur le port 3306</span>
+<span class="key">kind</span>: <span class="val">NetworkPolicy</span>
+<span class="key">metadata</span>: { <span class="key">name</span>: <span class="val">app-vers-base</span>, <span class="key">namespace</span>: <span class="val">saucisse</span> }
+<span class="key">spec</span>:
+  <span class="key">podSelector</span>:
+    <span class="key">matchLabels</span>: { <span class="key">app</span>: <span class="val">mysql</span> }    <span class="cmt"># qui est protege</span>
+  <span class="key">policyTypes</span>: [<span class="val">Ingress</span>]
+  <span class="key">ingress</span>:
+  - <span class="key">from</span>:
+    - <span class="key">podSelector</span>:
+        <span class="key">matchLabels</span>: { <span class="key">app</span>: <span class="val">saucisse</span> }  <span class="cmt"># qui a le droit</span>
+    <span class="key">ports</span>:
+    - { <span class="key">protocol</span>: <span class="val">TCP</span>, <span class="key">port</span>: <span class="val">3306</span> }        <span class="cmt"># sur quel port</span></div>
+      <div class="maison"><span class="maison-lbl">Deux pièges classiques</span><div class="maison-txt">Fermer la <em>sortie</em> d'un pod sans autoriser le port 53 casse la résolution DNS, et l'application semble alors victime d'une panne réseau incompréhensible. Et un <em>namespaceSelector</em> combiné à un <em>podSelector</em> dans le même élément de liste signifie « ce pod <em>dans</em> ce namespace », alors que deux éléments séparés signifient « l'un <em>ou</em> l'autre ». Un tiret mal placé ouvre bien plus que prévu.</div></div>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <div class="slide" data-n="6">
+    <div class="content">
+      <span class="step-label">Étape 06 · QCM</span>
+      <h2>Vérifiez vos Acquis</h2>
+      <div class="qcm-grid">
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 01</div><div class="q-text">Sans NetworkPolicy, tout pod peut joindre tout autre pod du cluster.</div></div>
+            <div class="flip-back"><div class="b-title">Ouvert par défaut</div><p>Le modèle réseau impose la connectivité totale. Le cloisonnement est une couche à ajouter explicitement, namespace par namespace.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 02</div><div class="q-text">Les PodSecurityPolicy sont le mécanisme actuel de durcissement des pods.</div></div>
+            <div class="flip-back"><div class="b-title">Supprimées en 1.25</div><p>Elles ont été remplacées par l'admission de sécurité des pods, pilotée par des étiquettes de namespace et trois niveaux prédéfinis.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 03</div><div class="q-text">Une NetworkPolicy peut être acceptée par l'API sans jamais être appliquée.</div></div>
+            <div class="flip-back"><div class="b-title">Dépend du CNI</div><p>L'objet est stocké quel que soit le plugin réseau. Si celui-ci n'implémente pas les politiques, rien n'est filtré et le cluster paraît protégé à tort.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 04</div><div class="q-text">readOnlyRootFilesystem empêche l'application d'écrire ses fichiers temporaires.</div></div>
+            <div class="flip-back"><div class="b-title">Il suffit d'un volume</div><p>On monte un <em>emptyDir</em> sur /tmp et sur les répertoires de travail. La racine reste protégée, l'application écrit là où on l'autorise.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7 -->
+  <div class="slide" data-n="7">
+    <div class="content">
+      <span class="step-label">Étape 07 · Atelier</span>
+      <h2>Atelier 13 : Durcir les Pods</h2>
+      <div class="lab">
+        <span class="lab-badge">Atelier 13 · Partie 1 · 25 minutes</span>
+        <h3>Contexte de sécurité, puis niveau restricted imposé au namespace</h3>
+        <div class="lab-section">
+          <div class="lab-section-title">1. Constater le comportement par défaut</div><div class="code"><span class="cmd">$</span> kubectl run root-par-defaut --image=nginx:1.27
+<span class="cmt">Attendu : uid=0, l'application tourne en root</span>
+<span class="cmd">$</span> kubectl exec root-par-defaut -- id
+<span class="cmt">Et elle peut ecrire partout dans son systeme de fichiers</span>
+<span class="cmd">$</span> kubectl exec root-par-defaut -- touch /etc/preuve &amp;&amp; echo "ecriture possible"</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">2. Le même service, durci</div><div class="code"><span class="cmd">$</span> cd ~/k8s &amp;&amp; cat &gt; durci.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata: { name: durci }
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    seccompProfile: { type: RuntimeDefault }
+  containers:
+  - name: app
+    image: saucisse:v1
+    imagePullPolicy: Never
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities: { drop: ["ALL"] }
+    volumeMounts: [{ name: tmp, mountPath: /tmp }]
+  volumes: [{ name: tmp, emptyDir: {} }]
+EOF
+<span class="cmd">$</span> kubectl apply -f durci.yaml
+<span class="cmd">$</span> kubectl exec durci -- id
+<span class="cmt">Attendu : echec, le systeme de fichiers racine est en lecture seule</span>
+<span class="cmd">$</span> kubectl exec durci -- touch /preuve</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">3. Imposer le niveau au namespace entier</div><div class="code"><span class="cmd">$</span> kubectl create namespace coffre
+<span class="cmd">$</span> kubectl label ns coffre \
+    pod-security.kubernetes.io/enforce=restricted \
+    pod-security.kubernetes.io/warn=restricted
+
+<span class="cmt">Attendu : creation refusee, avec la liste precise des manquements</span>
+<span class="cmd">$</span> kubectl run refuse -n coffre --image=nginx:1.27
+
+<span class="cmt">Le pod durci, lui, passe</span>
+<span class="cmd">$</span> kubectl apply -n coffre -f durci.yaml
+<span class="cmd">$</span> kubectl get pods -n coffre</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8 -->
+  <div class="slide" data-n="8">
+    <div class="content">
+      <span class="step-label">Étape 08 · Atelier</span>
+      <h2>Atelier 13 : Cloisonner le Réseau</h2>
+      <div class="lab">
+        <span class="lab-badge">Atelier 13 · Partie 2 · 30 minutes</span>
+        <h3>Du réseau ouvert au refus par défaut, puis à l'ouverture ciblée</h3>
+        <div class="lab-section">
+          <div class="lab-section-title">1. Le décor</div><div class="code"><span class="cmd">$</span> kubectl -n saucisse run serveur --image=nginx:1.27 --labels=app=serveur
+<span class="cmd">$</span> kubectl -n saucisse expose pod serveur --port=80
+<span class="cmd">$</span> kubectl -n saucisse run autorise --image=nicolaka/netshoot --labels=app=saucisse \
+    --command -- sleep 3600
+<span class="cmd">$</span> kubectl -n saucisse run intrus --image=nicolaka/netshoot --labels=app=inconnu \
+    --command -- sleep 3600
+
+<span class="cmt">Sans politique, les deux passent</span>
+<span class="cmd">$</span> kubectl -n saucisse exec autorise -- curl -s -m3 -o /dev/null -w "%{http_code}\n" serveur
+<span class="cmd">$</span> kubectl -n saucisse exec intrus   -- curl -s -m3 -o /dev/null -w "%{http_code}\n" serveur</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">2. Tout refuser</div><div class="code"><span class="cmd">$</span> cat &gt; refus.yaml &lt;&lt;'EOF'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: refus-par-defaut, namespace: saucisse }
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+EOF
+<span class="cmd">$</span> kubectl apply -f refus.yaml
+<span class="cmt">Attendu : les deux appels expirent maintenant</span>
+<span class="cmd">$</span> kubectl -n saucisse exec autorise -- curl -s -m3 -o /dev/null -w "%{http_code}\n" serveur
+<span class="cmd">$</span> kubectl -n saucisse exec intrus   -- curl -s -m3 -o /dev/null -w "%{http_code}\n" serveur</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">3. Ouvrir pour une seule étiquette</div><div class="code"><span class="cmd">$</span> cat &gt; ouverture.yaml &lt;&lt;'EOF'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: saucisse-vers-serveur, namespace: saucisse }
+spec:
+  podSelector:
+    matchLabels: { app: serveur }
+  policyTypes: [Ingress]
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels: { app: saucisse }
+    ports:
+    - { protocol: TCP, port: 80 }
+EOF
+<span class="cmd">$</span> kubectl apply -f ouverture.yaml
+<span class="cmt">Attendu : 200 pour l'un, expiration pour l'autre</span>
+<span class="cmd">$</span> kubectl -n saucisse exec autorise -- curl -s -m3 -o /dev/null -w "%{http_code}\n" serveur
+<span class="cmd">$</span> kubectl -n saucisse exec intrus   -- curl -s -m3 -o /dev/null -w "%{http_code}\n" serveur
+<span class="cmd">$</span> kubectl -n saucisse describe networkpolicy saucisse-vers-serveur</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">4. Le piège du DNS</div><div class="code"><span class="cmt">On ferme aussi les sorties du pod autorise</span>
+<span class="cmd">$</span> kubectl -n saucisse apply -f - &lt;&lt;'EOF'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: sortie-fermee, namespace: saucisse }
+spec:
+  podSelector: { matchLabels: { app: saucisse } }
+  policyTypes: [Egress]
+EOF
+<span class="cmt">Le nom ne se resout plus : la panne ressemble a tout sauf a du filtrage</span>
+<span class="cmd">$</span> kubectl -n saucisse exec autorise -- curl -s -m3 serveur
+<span class="cmt">Corrigez en autorisant le port 53 vers kube-system, puis retestez</span>
+<span class="cmd">$</span> kubectl -n saucisse delete networkpolicy sortie-fermee</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">Validation</div>
+          <p>Vous devez pouvoir montrer les trois états successifs du même appel : autorisé, expiré, puis autorisé pour un pod et refusé pour l'autre. Et savoir expliquer en une phrase pourquoi fermer les sorties sans ouvrir le port 53 rend un cluster incompréhensible.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9 -->
+  <div class="slide" data-n="9">
+    <div class="content">
+      <span class="step-label">Étape 09 · Conclusion</span>
+      <h2>Récapitulatif du Module 13</h2>
+      <div class="panel"><ul>
+        <li><strong>Le noyau est partagé.</strong> Un conteneur privilégié en root est presque root sur le nœud.</li>
+        <li><strong>Contexte de sécurité :</strong> non-root, pas d'élévation, aucune capacité, racine en lecture seule. Déclarable au niveau du pod ou du conteneur.</li>
+        <li><strong>Admission de sécurité des pods :</strong> trois niveaux, trois modes, posés par étiquettes de namespace. Elle remplace les PodSecurityPolicy supprimées.</li>
+        <li><strong>Migration :</strong> warn et audit d'abord, enforce seulement quand plus rien ne remonte.</li>
+        <li><strong>NetworkPolicy :</strong> additive, sélective, et sans effet si le plugin CNI ne l'implémente pas. Refus par défaut, puis ouvertures ciblées, sans oublier le DNS.</li>
+      </ul></div>
+      <div class="maison"><span class="maison-lbl">Prochaine étape</span><div class="maison-txt">Vos applications sont durcies et cloisonnées. Elles restent pourtant injoignables depuis l'extérieur du cluster, et leurs adresses changent à chaque redémarrage. Le module 14 traite ce problème avec l'objet le plus utilisé de Kubernetes : le Service.</div></div>
+      <a href="module-14.html" class="next-mod">Module 14 : Exposer les Applications ></a>
+    </div>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="btn" onclick="navSlide(-1)">&lsaquo;</button>
+  <div class="dots" id="dots"></div>
+  <button class="btn" onclick="navSlide(1)">&rsaquo;</button>
+</div>
+
+<script>
+  let cur = 1;
+  const total = 9;
+  const dotsContainer = document.getElementById('dots');
+  for(let i=1; i<=total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 1 ? ' active' : '');
+    dot.onclick = () => goToSlide(i);
+    dotsContainer.appendChild(dot);
+  }
+  function navSlide(dir) { goToSlide(cur + dir); }
+  function goToSlide(n) {
+    if(n < 1 || n > total) return;
+    cur = n;
+    document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+    document.querySelector(`.slide[data-n="${cur}"]`).classList.add('active');
+    document.querySelectorAll('.dot').forEach((d, i) => { d.classList.toggle('active', i + 1 === cur); });
+  }
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowRight') navSlide(1);
+    if(e.key === 'ArrowLeft') navSlide(-1);
+  });
+</script>
+</body>
+</html>

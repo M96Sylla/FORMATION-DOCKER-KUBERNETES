@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Challenge Jour 4 · CKA Blanc</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117; --txt: #e6edf3; --muted: #8b949e;
+      --line: rgba(255, 255, 255, 0.1); --panel: rgba(255, 255, 255, 0.04);
+      --c1: #ff7b72; --c2: #d2a8ff;
+      --font-display: 'Instrument Serif', Georgia, serif; --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--font-body); background: var(--bg); color: var(--txt); overflow: hidden; height: 100vh; }
+    .deck { width: 100vw; height: 100vh; position: relative; }
+    .slide { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transform: scale(0.97) translateY(20px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
+    .slide.active { opacity: 1; transform: scale(1) translateY(0); pointer-events: all; z-index: 10; }
+    .blobs { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.15; }
+    .blob-1 { top: -10%; right: -5%; width: 500px; height: 500px; background: var(--c1); }
+    .blob-2 { bottom: -10%; left: -5%; width: 400px; height: 400px; background: var(--c2); }
+    .content { position: relative; z-index: 2; width: 100%; max-width: 1100px; padding: 40px; max-height: 85vh; overflow-y: auto; }
+    .content::-webkit-scrollbar { width: 6px; }
+    .content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    .step-label { font-weight: 700; text-transform: uppercase; letter-spacing: 3px; color: var(--c1); font-size: 0.75rem; margin-bottom: 16px; display: block; opacity: 0.8; }
+    h1 { font-family: var(--font-display); font-size: clamp(3.5rem, 5vw, 4.5rem); font-style: italic; line-height: 1.05; margin: 0 0 30px; background: linear-gradient(135deg, #fff, var(--c1)); -webkit-background-clip: text; color: transparent; }
+    h2 { font-family: var(--font-display); font-size: clamp(2.5rem, 4vw, 3.2rem); font-style: italic; margin: 0 0 24px; color: #fff; font-weight: 400; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 35px 40px; line-height: 1.8; font-size: 1.1rem; color: #c9d1d9; backdrop-filter: blur(12px); box-shadow: 0 25px 50px rgba(0,0,0,0.2); }
+    .panel p { margin: 0 0 20px; } .panel p:last-child { margin-bottom: 0; }
+    .panel strong { color: #fff; font-weight: 500; }
+    .panel ul, .panel ol { margin: 0; padding-left: 20px; } .panel li { margin-bottom: 12px; }
+    .panel em { color: var(--c1); font-style: normal; }
+    .maison { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.10); border-left: 3px solid var(--c1); border-radius: 12px; padding: 18px 24px; margin-top: 22px; }
+    .maison-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c1); margin-bottom: 8px; opacity: 0.85; }
+    .maison-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .maison-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .prod { background: rgba(210,168,255,0.05); border: 1px solid rgba(210,168,255,0.18); border-left: 3px solid var(--c2); border-radius: 12px; padding: 18px 24px; margin-top: 18px; }
+    .prod-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c2); margin-bottom: 8px; opacity: 0.9; }
+    .prod-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .prod-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .task { background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border: 1px solid var(--line); border-left: 3px solid var(--c1); border-radius: 18px; padding: 24px 28px; margin-bottom: 20px; }
+    .task-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 12px; flex-wrap: wrap; }
+    .task-num { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c1); }
+    .task-pts { font-family: var(--font-mono); font-size: 0.75rem; color: var(--c2); border: 1px solid var(--line); padding: 3px 12px; border-radius: 50px; }
+    .task h3 { font-family: var(--font-display); font-style: italic; font-size: 1.45rem; margin: 0 0 12px; color: #fff; font-weight: 400; }
+    .task p { color: #c9d1d9; line-height: 1.7; margin: 0 0 10px; font-size: 1rem; }
+    .task ul, .task ol { margin: 0 0 10px; padding-left: 20px; line-height: 1.7; color: #c9d1d9; font-size: 0.98rem; }
+    .task li { margin-bottom: 6px; }
+    .ctx { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 6px; }
+    .code { font-family: var(--font-mono); background: rgba(0,0,0,0.5); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; font-size: 0.86rem; color: #c9d1d9; overflow-x: auto; white-space: pre; line-height: 1.55; margin-top: 8px; }
+    .code .cmt { color: #6e7681; font-style: italic; }
+    .code .cmd { color: var(--c1); }
+    table.spec { width: 100%; border-collapse: collapse; font-size: 0.95rem; margin-top: 6px; }
+    table.spec th, table.spec td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    table.spec th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--c1); font-weight: 700; }
+    table.spec td.ref { font-family: var(--font-mono); color: var(--c2); white-space: nowrap; font-size: 0.85rem; }
+    table.spec td.pts { text-align: right; font-family: var(--font-mono); color: var(--c1); white-space: nowrap; }
+    .spoiler { position: relative; margin-top: 6px; }
+    .sp-body { filter: blur(7px); transition: filter 0.45s; user-select: none; }
+    .spoiler.revealed .sp-body { filter: none; user-select: auto; }
+    .sp-btn { display: inline-block; cursor: pointer; margin-bottom: 14px; padding: 8px 20px; border: 1px solid var(--c1); border-radius: 50px; color: var(--c1); font-size: 0.78rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; background: rgba(255,255,255,0.03); transition: all 0.3s; }
+    .sp-btn:hover { background: rgba(255,255,255,0.09); }
+    .timer { display: inline-block; font-family: var(--font-mono); font-size: 0.8rem; color: var(--c2); border: 1px solid var(--line); padding: 4px 14px; border-radius: 50px; margin-left: 10px; }
+    .next-mod { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; text-decoration: none; color: var(--c1); font-weight: 500; font-size: 0.95rem; padding: 10px 22px; border: 1px solid var(--c1); border-radius: 50px; background: rgba(255,255,255,0.03); transition: all 0.3s; }
+    .next-mod:hover { background: rgba(255,255,255,0.09); transform: translateX(4px); }
+    .nav { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 20px; background: rgba(13, 17, 23, 0.7); padding: 12px 30px; border-radius: 50px; border: 1px solid var(--line); backdrop-filter: blur(20px); z-index: 100; }
+    .btn { background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; transition: color 0.2s; padding: 0 10px; }
+    .btn:hover { color: #fff; }
+    .dots { display: flex; gap: 10px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); cursor: pointer; transition: all 0.3s; }
+    .dot.active { background: var(--c1); transform: scale(1.4); box-shadow: 0 0 10px var(--c1); }
+    .home { position: fixed; top: 25px; left: 25px; color: var(--muted); text-decoration: none; font-size: 0.85rem; padding: 8px 16px; border: 1px solid var(--line); border-radius: 50px; background: rgba(13,17,23,0.6); backdrop-filter: blur(10px); transition: all 0.3s; z-index: 100; }
+    .home:hover { color: #fff; border-color: var(--c1); }
+  </style>
+</head>
+<body>
+
+<a href="index.html" class="home">← Sommaire</a>
+
+<div class="deck">
+  <div class="blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+
+  <!-- 1 -->
+  <div class="slide active" data-n="1">
+    <div class="content">
+      <span class="step-label">Challenge Jour 4 · Modules 11 à 14<span class="timer">2 heures · /100</span></span>
+      <h1>CKA Blanc</h1>
+      <div class="panel">
+        <p>Dix tâches, deux heures, cent points. Le format, le ton et le niveau sont ceux de l'examen <strong>Certified Kubernetes Administrator</strong>. Aucune question de cours : uniquement des choses à faire, sur un cluster qui répond.</p>
+        <p><strong>Les règles de l'examen réel, appliquées ici :</strong></p>
+        <ul>
+          <li>La documentation officielle <em>kubernetes.io/docs</em> est <strong>autorisée</strong>, et vous devriez l'utiliser. Savoir y retrouver un exemple de manifeste en 30 secondes est une compétence évaluée, pas une triche.</li>
+          <li>Aucune autre ressource : pas de notes du cursus, pas d'IA, pas de voisin.</li>
+          <li>Les tâches sont <strong>indépendantes</strong>. Si l'une vous bloque, passez , elle ne pénalise que ses propres points.</li>
+          <li>On note le <strong>résultat sur le cluster</strong>, pas la méthode. Un objet créé en impératif vaut autant qu'un YAML léché.</li>
+        </ul>
+      </div>
+      <div class="prod"><span class="prod-lbl">Le conseil qui fait gagner 20 minutes</span><div class="prod-txt">Générez vos manifestes au lieu de les écrire : <em>kubectl create deploy x --image=nginx --dry-run=client -o yaml &gt; x.yaml</em>. Les candidats qui rédigent tout à la main ne finissent pas dans le temps imparti. C'est la principale cause d'échec à la CKA, avant le manque de connaissances.</div></div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="slide" data-n="2">
+    <div class="content">
+      <span class="step-label">Étape 02 · Mise en place</span>
+      <h2>Préparer la Salle d'Examen</h2>
+      <div class="panel">
+        <p>L'examen se déroule sur un cluster à <strong>deux nœuds</strong>. Vous allez en ajouter un à votre résidence. L'opération prend 2 à 3 minutes et ne détruit rien de ce que vous avez construit.</p>
+        <div class="code"><span class="cmt">Liberer la memoire des jours precedents</span>
+<span class="cmd">$</span> kubectl scale deploy --all --replicas=0 -n cloud
+<span class="cmd">$</span> kubectl scale deploy --all --replicas=0 -n supervision
+<span class="cmt">Construire le second immeuble</span>
+<span class="cmd">$</span> minikube node add
+<span class="cmt">Patienter jusqu'a ce que les DEUX noeuds soient Ready</span>
+<span class="cmd">$</span> kubectl get nodes -w
+<span class="cmt">Preparer l'environnement de travail</span>
+<span class="cmd">$</span> export do="--dry-run=client -o yaml"
+<span class="cmd">$</span> alias k=kubectl</div>
+      </div>
+      <div class="prod"><span class="prod-lbl">Vérification avant de lancer le chrono</span><div class="prod-txt">Les deux nœuds doivent être <em>Ready</em> et les pods <em>calico-node</em> doivent être au nombre de <strong>deux</strong> dans <em>kube-system</em>. Si le second nœud reste <em>NotReady</em> plus de 3 minutes, c'est que le réseau n'a pas fini de s'installer , attendez, ne relancez rien. Vous noterez au passage que le DaemonSet du jour 2 a <strong>automatiquement</strong> déployé un node-exporter sur le nouveau nœud, sans que personne ne le lui demande.</div></div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="slide" data-n="3">
+    <div class="content">
+      <span class="step-label">Étape 03 · Tâches 1 à 3</span>
+      <h2>Identité & Placement</h2>
+
+      <div class="task">
+        <div class="task-head"><span class="task-num">Tâche 01 · RBAC</span><span class="task-pts">8 points</span></div>
+        <div class="ctx">Contexte : namespace <b>direction</b></div>
+        <h3>Un auditeur aux droits strictement limités</h3>
+        <p>Dans le namespace <em>direction</em> (à créer), mettez en place un compte de service nommé <em>auditeur</em> qui peut <strong>lister, lire et observer les pods</strong> de ce namespace, et rien d'autre. Il ne doit pouvoir ni supprimer un pod, ni voir les secrets, ni agir dans un autre namespace.</p>
+        <p>Votre travail est validé si ces trois commandes répondent respectivement <em>yes</em>, <em>no</em>, <em>no</em> :</p>
+        <div class="code"><span class="cmd">$</span> k auth can-i list pods --as=system:serviceaccount:direction:auditeur -n direction
+<span class="cmd">$</span> k auth can-i delete pods --as=system:serviceaccount:direction:auditeur -n direction
+<span class="cmd">$</span> k auth can-i list pods --as=system:serviceaccount:direction:auditeur -n default</div>
+      </div>
+
+      <div class="task">
+        <div class="task-head"><span class="task-num">Tâche 02 · ServiceAccount</span><span class="task-pts">8 points</span></div>
+        <div class="ctx">Contexte : namespace <b>direction</b></div>
+        <h3>Donner le badge au bon locataire</h3>
+        <p>Créez un pod nommé <em>controleur</em> dans <em>direction</em>, image <em>nginx:1.25</em>, qui s'exécute <strong>avec l'identité</strong> du compte de service de la tâche 1 , et non avec l'identité par défaut.</p>
+        <p>Prouvez-le : retrouvez, à l'intérieur du pod, le fichier contenant le jeton d'identité monté automatiquement par Kubernetes, et donnez son chemin complet.</p>
+      </div>
+
+      <div class="task">
+        <div class="task-head"><span class="task-num">Tâche 03 · Taints</span><span class="task-pts">10 points</span></div>
+        <div class="ctx">Contexte : nœud <b>minikube-m02</b></div>
+        <h3>L'immeuble en travaux</h3>
+        <p>Le second immeuble part en rénovation. Appliquez-lui une marque qui <strong>repousse tout nouveau locataire</strong>, avec la clé <em>maintenance</em>, la valeur <em>true</em>, et l'effet qui empêche la planification sans expulser les pods déjà présents.</p>
+        <p>Créez ensuite un pod nommé <em>urgence</em> (image <em>nginx:1.25</em>) qui, <strong>malgré cette marque</strong>, est capable de s'installer sur ce nœud , et qui s'y installe effectivement.</p>
+        <p>Validez avec : <em>k get pod urgence -o wide</em>, la colonne NODE doit afficher <em>minikube-m02</em>.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="slide" data-n="4">
+    <div class="content">
+      <span class="step-label">Étape 04 · Tâches 4 à 6</span>
+      <h2>Répartition, Réseau & Stockage</h2>
+
+      <div class="task">
+        <div class="task-head"><span class="task-num">Tâche 04 · Anti-affinité</span><span class="task-pts">10 points</span></div>
+        <div class="ctx">Contexte : namespace <b>default</b></div>
+        <h3>Ne jamais mettre tous ses locataires dans le même immeuble</h3>
+        <p>Créez un Deployment <em>reparti</em>, image <em>nginx:1.25</em>, <strong>2 réplicas</strong>, configuré de telle sorte que ses deux pods ne puissent <strong>jamais</strong> se retrouver sur le même nœud. La contrainte doit être <strong>stricte</strong> : plutôt rester en Pending que cohabiter.</p>
+        <p>Attention : la tâche 3 a marqué le second nœud. À vous de voir ce que cela implique et de traiter le problème.</p>
+        <p>Validation : <em>k get pods -o wide -l app=reparti</em> doit montrer deux nœuds différents.</p>
+      </div>
+
+      <div class="task">
+        <div class="task-head"><span class="task-num">Tâche 05 · NetworkPolicy</span><span class="task-pts">12 points</span></div>
+        <div class="ctx">Contexte : namespace <b>coffre</b></div>
+        <h3>Le digicode entre les ailes</h3>
+        <p>Dans le namespace <em>coffre</em>, déployez un pod <em>banque</em> (image <em>nginx:1.25</em>, label <em>app=banque</em>) exposé par un Service ClusterIP nommé <em>banque</em>.</p>
+        <p>Mettez en place une politique réseau telle que :</p>
+        <ul>
+          <li>par défaut, <strong>aucun</strong> trafic entrant n'atteint les pods du namespace ;</li>
+          <li><strong>seuls</strong> les pods portant le label <em>role=guichet</em> peuvent joindre <em>banque</em> sur le port 80.</li>
+        </ul>
+        <p>Prouvez-le avec deux pods de test : un avec le label, un sans. Le premier obtient une page, le second part en timeout.</p>
+      </div>
+
+      <div class="task">
+        <div class="task-head"><span class="task-num">Tâche 06 · PV / PVC</span><span class="task-pts">10 points</span></div>
+        <div class="ctx">Contexte : namespace <b>default</b></div>
+        <h3>Une cave attribuée à la main</h3>
+        <p>Créez un PersistentVolume <em>pv-archives</em> de <strong>1 Gio</strong>, en accès <em>ReadWriteOnce</em>, de type <em>hostPath</em> pointant vers <em>/mnt/archives</em>, avec la classe de stockage <em>manuel</em>.</p>
+        <p>Créez ensuite un PersistentVolumeClaim <em>pvc-archives</em> qui se lie <strong>à ce volume précis</strong> et non à un volume provisionné automatiquement. Montez-le dans un pod <em>archiviste</em> sur <em>/data</em>.</p>
+        <p>Validation : <em>k get pv,pvc</em> , le PV doit être <em>Bound</em> au bon PVC.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="slide" data-n="5">
+    <div class="content">
+      <span class="step-label">Étape 05 · Tâches 7 à 9</span>
+      <h2>Dépannage, Helm & Maintenance</h2>
+
+      <div class="task">
+        <div class="task-head"><span class="task-num">Tâche 07 · Dépannage</span><span class="task-pts">10 points</span></div>
+        <div class="ctx">Contexte : namespace <b>panne</b></div>
+        <h3>Le service qui ne dessert personne</h3>
+        <p>Appliquez ce manifeste tel quel. Le Deployment tourne, le Service existe, et pourtant aucune requête n'aboutit. <strong>Réparez, sans supprimer ni recréer le Deployment.</strong></p>
+        <div class="code">apiVersion: apps/v1
+kind: Deployment
+metadata: {name: boutique, namespace: panne}
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: boutique}}
+  template:
+    metadata: {labels: {app: boutique}}
+    spec:
+      containers:
+      - name: web
+        image: nginx:1.25
+        ports: [{containerPort: 80}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: boutique, namespace: panne}
+spec:
+  selector: {app: magasin}
+  ports: [{port: 80, targetPort: 8080}]</div>
+        <p style="margin-top:10px;">Il y a <strong>deux</strong> défauts distincts. Trouvez-les tous les deux, et expliquez quelle commande vous a permis de voir le problème en premier.</p>
+      </div>
+
+      <div class="task">
+        <div class="task-head"><span class="task-num">Tâche 08 · Helm</span><span class="task-pts">10 points</span></div>
+        <div class="ctx">Contexte : namespace <b>meuble</b></div>
+        <h3>Installer, régler, revenir en arrière</h3>
+        <p>Depuis le dépôt public Bitnami, installez le chart <em>nginx</em> dans le namespace <em>meuble</em>, sous le nom de release <em>vitrine</em>, avec <strong>2 réplicas</strong> définis par une valeur personnalisée , pas par un <em>kubectl scale</em> après coup.</p>
+        <p>Faites ensuite une mise à jour à <strong>3 réplicas</strong>, puis <strong>revenez à la révision 1</strong>.</p>
+        <p>Validation : <em>helm history vitrine -n meuble</em> doit montrer trois révisions, et le déploiement doit être revenu à 2 réplicas.</p>
+      </div>
+
+      <div class="task">
+        <div class="task-head"><span class="task-num">Tâche 09 · Drain</span><span class="task-pts">10 points</span></div>
+        <div class="ctx">Contexte : nœud <b>minikube-m02</b></div>
+        <h3>Vider un immeuble avant les travaux</h3>
+        <p>Le second nœud doit être mis hors service pour maintenance. <strong>Évacuez tous ses pods</strong> et empêchez toute nouvelle planification dessus. Les DaemonSets ne doivent pas bloquer l'opération.</p>
+        <p>Répondez ensuite : que sont devenus les pods du Deployment <em>reparti</em> de la tâche 4 ? Pourquoi ? Remettez enfin le nœud en service.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <div class="slide" data-n="6">
+    <div class="content">
+      <span class="step-label">Étape 06 · Tâche 10 & bonus</span>
+      <h2>Le Coffre-fort du Syndic</h2>
+
+      <div class="task">
+        <div class="task-head"><span class="task-num">Tâche 10 · Sauvegarde etcd</span><span class="task-pts">12 points</span></div>
+        <div class="ctx">Contexte : plan de contrôle</div>
+        <h3>Sauvegarder le registre de la résidence</h3>
+        <p>etcd contient <strong>l'intégralité</strong> de l'état du cluster. Sa sauvegarde est une tâche d'administrateur classique, et elle tombe très régulièrement à la certification.</p>
+        <p>Réalisez un instantané d'etcd et déposez-le dans <em>/tmp/etcd-backup.db</em> sur le nœud du plan de contrôle. Vérifiez ensuite que le fichier est un instantané valide.</p>
+        <p><strong>La vraie difficulté est là :</strong> etcdctl a besoin de trois certificats pour s'authentifier, et personne ne vous donnera leurs chemins. Ils sont écrits dans le manifeste statique d'etcd. À vous de les y lire.</p>
+        <div class="code"><span class="cmt">Le point de depart : lire le manifeste statique</span>
+<span class="cmd">$</span> minikube ssh
+<span class="cmd">$</span> sudo cat /etc/kubernetes/manifests/etcd.yaml | grep -E "cert|key|file"
+<span class="cmt">Les 3 valeurs a recuperer :</span>
+<span class="cmt">   --trusted-ca-file    --cert-file    --key-file</span>
+<span class="cmt">Puis, depuis le conteneur etcd qui contient l'outil etcdctl :</span>
+<span class="cmd">$</span> exit
+<span class="cmd">$</span> k -n kube-system exec -it etcd-minikube -- sh</div>
+      </div>
+
+      <div class="task" style="border-left-color:var(--c2);">
+        <div class="task-head"><span class="task-num" style="color:var(--c2)">Bonus · Le gardien endormi</span><span class="task-pts">10 points</span></div>
+        <div class="ctx">Contexte : nœud <b>minikube-m02</b></div>
+        <h3>Un nœud qui passe NotReady sans raison apparente</h3>
+        <p>Provoquez la panne vous-même, puis diagnostiquez-la comme si vous ne saviez pas ce qui s'est passé :</p>
+        <div class="code"><span class="cmd">$</span> minikube ssh -n minikube-m02
+<span class="cmd">$</span> sudo systemctl stop kubelet
+<span class="cmd">$</span> exit
+<span class="cmt">Puis observer, et surtout CHRONOMETRER</span>
+<span class="cmd">$</span> k get nodes -w</div>
+        <p style="margin-top:10px;">Trois questions : au bout de combien de temps le nœud bascule-t-il en <em>NotReady</em> ? Qu'arrive-t-il à ses pods, et après combien de temps ? Quelle commande, exécutée sur le nœud, vous aurait donné la cause en une ligne ? Réparez pour finir.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7 -->
+  <div class="slide" data-n="7">
+    <div class="content">
+      <span class="step-label">Étape 07 · Notation</span>
+      <h2>Barème</h2>
+      <div class="panel" style="padding:28px 32px;">
+        <table class="spec">
+          <tr><th>Tâche</th><th>Domaine CKA correspondant</th><th>Pts</th></tr>
+          <tr><td class="ref">01</td><td>Sécurité du cluster , RBAC</td><td class="pts">8</td></tr>
+          <tr><td class="ref">02</td><td>Sécurité du cluster , ServiceAccounts</td><td class="pts">8</td></tr>
+          <tr><td class="ref">03</td><td>Workloads &amp; Scheduling , taints et tolérances</td><td class="pts">10</td></tr>
+          <tr><td class="ref">04</td><td>Workloads &amp; Scheduling , affinités</td><td class="pts">10</td></tr>
+          <tr><td class="ref">05</td><td>Services &amp; Networking , NetworkPolicies</td><td class="pts">12</td></tr>
+          <tr><td class="ref">06</td><td>Stockage , PV, PVC, StorageClass</td><td class="pts">10</td></tr>
+          <tr><td class="ref">07</td><td>Troubleshooting , services et endpoints</td><td class="pts">10</td></tr>
+          <tr><td class="ref">08</td><td>Workloads , gestionnaire de paquets</td><td class="pts">10</td></tr>
+          <tr><td class="ref">09</td><td>Architecture &amp; maintenance , drain</td><td class="pts">10</td></tr>
+          <tr><td class="ref">10</td><td>Architecture , sauvegarde etcd</td><td class="pts">12</td></tr>
+          <tr><td class="ref">Bonus</td><td>Troubleshooting , défaillance de nœud</td><td class="pts">+10</td></tr>
+        </table>
+      </div>
+      <div class="maison"><span class="maison-lbl">Le seuil</span><div class="maison-txt">La CKA se réussit à <em>66 %</em>. Si vous êtes au-dessus de 66 points sans le bonus, vous auriez décroché la certification aujourd'hui. Si vous êtes en dessous, regardez <strong>quelle tâche</strong> vous a coûté le plus de temps plutôt que combien de points vous avez perdus : à l'examen, le temps est l'adversaire principal.</div></div>
+    </div>
+  </div>
+
+  <!-- 8 -->
+  <div class="slide" data-n="8">
+    <div class="content">
+      <span class="step-label">Étape 08 · Corrigé</span>
+      <h2>Les Points Clés du Corrigé</h2>
+      <div class="spoiler" id="sp1">
+        <span class="sp-btn" onclick="document.getElementById('sp1').classList.toggle('revealed')">Cliquer pour révéler le corrigé</span>
+        <div class="sp-body">
+          <div class="panel">
+            <p><strong>T1 , Role et non ClusterRole.</strong> Un Role est limité à son namespace, c'est ce qui fait répondre <em>no</em> à la troisième commande. Verbes attendus : <em>get, list, watch</em> sur la ressource <em>pods</em>. Le RoleBinding lie le Role au sujet de type <em>ServiceAccount</em>.</p>
+            <p><strong>T2 , le champ est <em>spec.serviceAccountName</em></strong> dans le pod. Le jeton est monté dans <em>/var/run/secrets/kubernetes.io/serviceaccount/token</em>. Erreur fréquente : mettre <em>serviceAccount</em> (déprécié) ou le placer dans les métadonnées.</p>
+            <p><strong>T3 , effet <em>NoSchedule</em></strong> et non NoExecute : NoExecute expulserait les pods déjà présents, ce que l'énoncé interdit. Le pod <em>urgence</em> a besoin d'une <em>toleration</em> qui correspond exactement à la marque. Piège : une toleration <strong>autorise</strong> mais ne <strong>dirige</strong> pas. Rien ne garantit que le pod ira sur m02 , il faut en plus un <em>nodeSelector</em> ou un <em>nodeName</em>.</p>
+            <p><strong>T4 , <em>podAntiAffinity</em> en <em>requiredDuringSchedulingIgnoredDuringExecution</em></strong>, avec <em>topologyKey: kubernetes.io/hostname</em>. Comme m02 est marqué par la tâche 3, un des deux pods restera en Pending tant que le Deployment ne portera pas la tolérance adéquate. Reconnaître cet enchaînement fait partie de la note.</p>
+            <p><strong>T5 , deux politiques</strong> , ou une seule bien écrite. Le refus par défaut s'obtient avec un <em>podSelector: {}</em> vide et un <em>policyTypes: [Ingress]</em> sans aucune règle. C'est le vide qui bloque tout. Rappel : cela ne fonctionne que parce que le cluster tourne avec Calico depuis le module 3.</p>
+            <p><strong>T6 , la liaison à un volume précis</strong> passe par <em>storageClassName: manuel</em> des deux côtés. Sans cela, la classe par défaut de Minikube provisionne un autre volume et votre PV reste <em>Available</em> pendant que le PVC est <em>Bound</em> ailleurs , un grand classique.</p>
+            <p><strong>T7 , deux défauts :</strong> le sélecteur du Service cible <em>app: magasin</em> alors que les pods portent <em>app: boutique</em> ; et le <em>targetPort</em> vaut 8080 alors que nginx écoute sur 80. La commande qui révèle tout en une ligne : <em>k get endpoints boutique -n panne</em> , une liste vide signifie toujours un problème de sélecteur.</p>
+            <p><strong>T9 , <em>drain</em> avec <em>--ignore-daemonsets</em></strong>, et <em>--delete-emptydir-data</em> si des volumes temporaires existent. Les pods du Deployment <em>reparti</em> ne peuvent <strong>pas</strong> être replacés : l'anti-affinité stricte interdit de mettre les deux sur le nœud restant. L'un reste donc en Pending. C'est le comportement correct, et une excellente illustration du prix d'une contrainte stricte.</p>
+            <p><strong>T10 , la commande complète</strong> une fois les chemins lus dans le manifeste : <em>ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 --cacert=… --cert=… --key=… snapshot save /tmp/etcd-backup.db</em>, puis <em>snapshot status</em> pour valider. Les chemins de Minikube diffèrent de ceux d'un kubeadm standard , d'où l'obligation de les lire plutôt que de les réciter.</p>
+            <p><strong>Bonus , environ 40 secondes</strong> avant le passage en NotReady, puis <strong>5 minutes</strong> avant l'expulsion des pods. La commande qui donne la cause : <em>systemctl status kubelet</em> ou <em>journalctl -u kubelet -n 50</em>, sur le nœud concerné. Réparation : <em>sudo systemctl start kubelet</em>.</p>
+          </div>
+        </div>
+      </div>
+      <a href="index.html" class="next-mod">Retour au sommaire ></a>
+    </div>
+  </div>
+
+</div>
+
+<div class="nav">
+  <button class="btn" onclick="navSlide(-1)">‹</button>
+  <div class="dots" id="dots"></div>
+  <button class="btn" onclick="navSlide(1)">›</button>
+</div>
+
+<script>
+  let cur = 1;
+  const total = 8;
+  const dotsContainer = document.getElementById('dots');
+  for(let i=1; i<=total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 1 ? ' active' : '');
+    dot.onclick = () => goToSlide(i);
+    dotsContainer.appendChild(dot);
+  }
+  function navSlide(dir) { goToSlide(cur + dir); }
+  function goToSlide(n) {
+    if(n < 1 || n > total) return;
+    cur = n;
+    document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+    document.querySelector(`.slide[data-n="${cur}"]`).classList.add('active');
+    document.querySelectorAll('.dot').forEach((d, i) => { d.classList.toggle('active', i + 1 === cur); });
+  }
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowRight') navSlide(1);
+    if(e.key === 'ArrowLeft') navSlide(-1);
+  });
+</script>
+</body>
+</html>

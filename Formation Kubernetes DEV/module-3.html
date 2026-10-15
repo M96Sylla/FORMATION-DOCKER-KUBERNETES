@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 3 &middot; Installer le Cluster (kubeadm)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117; --txt: #e6edf3; --muted: #8b949e;
+      --line: rgba(255, 255, 255, 0.1); --panel: rgba(255, 255, 255, 0.04);
+      --c1: #3fb950; --c2: #58a6ff;
+      --font-display: 'Instrument Serif', Georgia, serif; --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--font-body); background: var(--bg); color: var(--txt); overflow: hidden; height: 100vh; }
+    .deck { width: 100vw; height: 100vh; position: relative; }
+    .slide { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transform: scale(0.97) translateY(20px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
+    .slide.active { opacity: 1; transform: scale(1) translateY(0); pointer-events: all; z-index: 10; }
+    .blobs { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.15; }
+    .blob-1 { top: -10%; right: -5%; width: 500px; height: 500px; background: var(--c1); }
+    .blob-2 { bottom: -10%; left: -5%; width: 400px; height: 400px; background: var(--c2); }
+    .content { position: relative; z-index: 2; width: 100%; max-width: 1100px; padding: 40px; max-height: 85vh; overflow-y: auto; }
+    .content::-webkit-scrollbar { width: 6px; }
+    .content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    .step-label { font-weight: 700; text-transform: uppercase; letter-spacing: 3px; color: var(--c1); font-size: 0.75rem; margin-bottom: 16px; display: block; opacity: 0.8; }
+    h1 { font-family: var(--font-display); font-size: clamp(3.5rem, 5vw, 4.5rem); font-style: italic; line-height: 1.05; margin: 0 0 30px; background: linear-gradient(135deg, #fff, var(--c1)); -webkit-background-clip: text; color: transparent; }
+    h2 { font-family: var(--font-display); font-size: clamp(2.5rem, 4vw, 3.2rem); font-style: italic; margin: 0 0 24px; color: #fff; font-weight: 400; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 35px 40px; line-height: 1.8; font-size: 1.1rem; color: #c9d1d9; backdrop-filter: blur(12px); box-shadow: 0 25px 50px rgba(0,0,0,0.2); }
+    .panel p { margin: 0 0 20px; } .panel p:last-child { margin-bottom: 0; }
+    .panel strong { color: #fff; font-weight: 500; }
+    .panel ul { margin: 0; padding-left: 20px; } .panel li { margin-bottom: 12px; }
+    .panel em { color: var(--c1); font-style: normal; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .mini-card { padding: 22px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 16px; }
+    .mini-card h3 { margin: 0 0 10px; font-size: 1.05rem; color: #fff; font-weight: 500; }
+    .mini-card p { margin: 0; font-size: 0.92rem; color: var(--muted); line-height: 1.6; }
+    .mini-card .mini-num { font-family: var(--font-display); font-style: italic; font-size: 2rem; color: var(--c1); line-height: 1; margin-bottom: 8px; }
+    .mini-card .mini-tag { font-family: var(--font-mono); font-size: 0.78rem; color: var(--c2); display: block; margin-top: 8px; }
+    .qcm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px; }
+    .flip-card { perspective: 1200px; height: 200px; cursor: pointer; }
+    .flip-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1); transform-style: preserve-3d; border-radius: 20px; }
+    .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
+    .flip-front, .flip-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; padding: 25px; display: flex; flex-direction: column; justify-content: center; backdrop-filter: blur(10px); }
+    .flip-front { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); transition: background 0.3s, border-color 0.3s; }
+    .flip-front:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.2); }
+    .q-num { font-size: 0.8rem; font-weight: 700; color: var(--c1); margin-bottom: 10px; letter-spacing: 1px; }
+    .q-text { font-size: 1.05rem; font-weight: 500; color: #fff; line-height: 1.5; }
+    .flip-back { transform: rotateY(180deg); font-size: 0.95rem; line-height: 1.6; border: 1px solid transparent; }
+    .b-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+    .flip-card[data-correct="true"] .flip-back { background: rgba(63, 185, 80, 0.08); border-color: rgba(63, 185, 80, 0.3); box-shadow: 0 10px 30px rgba(63, 185, 80, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="true"] .b-title { color: #3fb950; }
+    .flip-card[data-correct="true"] .b-title::after { content: 'Vrai'; font-size: 0.8rem; padding: 2px 8px; background: rgba(63, 185, 80, 0.2); border-radius: 10px; }
+    .flip-card[data-correct="false"] .flip-back { background: rgba(248, 81, 73, 0.08); border-color: rgba(248, 81, 73, 0.3); box-shadow: 0 10px 30px rgba(248, 81, 73, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="false"] .b-title { color: #f85149; }
+    .flip-card[data-correct="false"] .b-title::after { content: 'Faux'; font-size: 0.8rem; padding: 2px 8px; background: rgba(248, 81, 73, 0.2); border-radius: 10px; }
+    .maison { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.10); border-left: 3px solid var(--c1); border-radius: 12px; padding: 18px 24px; margin-top: 22px; }
+    .maison-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c1); margin-bottom: 8px; opacity: 0.85; }
+    .maison-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .maison-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .prod { background: rgba(63,185,80,0.05); border: 1px solid rgba(63,185,80,0.18); border-left: 3px solid var(--c2); border-radius: 12px; padding: 18px 24px; margin-top: 18px; }
+    .prod-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c2); margin-bottom: 8px; opacity: 0.9; }
+    .prod-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .prod-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .lab { background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border: 1px solid var(--c1); border-radius: 24px; padding: 35px 40px; box-shadow: 0 0 60px rgba(0,0,0,0.3); }
+    .lab-badge { display: inline-block; padding: 4px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--c1); border-radius: 50px; color: var(--c1); font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+    .lab h3 { font-family: var(--font-display); font-style: italic; font-size: 1.7rem; margin: 0 0 18px; color: #fff; font-weight: 400; }
+    .lab-section { margin-top: 20px; }
+    .lab-section-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--c1); margin-bottom: 10px; opacity: 0.85; }
+    .code { font-family: var(--font-mono); background: rgba(0,0,0,0.5); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; font-size: 0.88rem; color: #c9d1d9; overflow-x: auto; white-space: pre; line-height: 1.55; }
+    .code .cmt { color: #6e7681; font-style: italic; }
+    .code .cmd { color: var(--c1); }
+    .code .key { color: #79c0ff; }
+    .code .val { color: #a5d6ff; }
+    .lab ol, .lab ul { margin: 0; padding-left: 20px; line-height: 1.7; color: #c9d1d9; font-size: 1rem; }
+    .lab li { margin-bottom: 8px; }
+    .lab p { color: #c9d1d9; line-height: 1.7; margin: 0 0 12px; font-size: 1rem; }
+    .next-mod { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; text-decoration: none; color: var(--c1); font-weight: 500; font-size: 0.95rem; padding: 10px 22px; border: 1px solid var(--c1); border-radius: 50px; background: rgba(255,255,255,0.03); transition: all 0.3s; }
+    .next-mod:hover { background: rgba(255,255,255,0.09); transform: translateX(4px); }
+    .nav { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 20px; background: rgba(13, 17, 23, 0.7); padding: 12px 30px; border-radius: 50px; border: 1px solid var(--line); backdrop-filter: blur(20px); z-index: 100; }
+    .btn { background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; transition: color 0.2s; padding: 0 10px; }
+    .btn:hover { color: #fff; }
+    .dots { display: flex; gap: 10px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); cursor: pointer; transition: all 0.3s; }
+    .dot.active { background: var(--c1); transform: scale(1.4); box-shadow: 0 0 10px var(--c1); }
+    .home { position: fixed; top: 25px; left: 25px; color: var(--muted); text-decoration: none; font-size: 0.85rem; padding: 8px 16px; border: 1px solid var(--line); border-radius: 50px; background: rgba(13,17,23,0.6); backdrop-filter: blur(10px); transition: all 0.3s; z-index: 100; }
+    .home:hover { color: #fff; border-color: var(--c1); }
+  </style>
+</head>
+<body>
+
+<a href="index.html" class="home">&larr; Sommaire</a>
+
+<div class="deck">
+  <div class="blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+
+  <!-- 1 -->
+  <div class="slide active" data-n="1">
+    <div class="content">
+      <span class="step-label">Étape 01 · L'outil</span>
+      <h1>Installer le Cluster</h1>
+      <div class="panel">
+        <p><strong>Minikube</strong> est un outil de la communauté Kubernetes qui fabrique un cluster complet sur une seule machine. Il prépare un environnement isolé (ici un conteneur Docker), y installe les binaires, exécute <strong>kubeadm</strong> à l'intérieur, télécharge les images du plan de contrôle et écrit votre fichier de connexion.</p>
+        <p>Ce qu'il faut avoir en tête : Minikube n'est pas un Kubernetes différent. C'est un <em>installateur</em> et un gestionnaire de cycle de vie. Une fois démarré, ce qui tourne dans le nœud est exactement ce qui tournerait sur un serveur de production, aux mêmes emplacements, avec les mêmes commandes.</p>
+        <p>Ce qu'il fait en plus, et qui nous servira beaucoup : il gère les modules complémentaires, sait ajouter des nœuds, ouvre un accès aux services et sait tout détruire proprement pour recommencer.</p>
+      </div>
+      <div class="maison"><span class="maison-lbl">Le filet de sécurité</span><div class="maison-txt"><em>minikube delete</em> puis <em>minikube start</em> reconstruit un cluster neuf en quelques minutes. Vous pouvez donc casser sans crainte pendant trois jours, ce qui est précisément l'intérêt de cet environnement.</div></div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="slide" data-n="2">
+    <div class="content">
+      <span class="step-label">Étape 02 · Les choix</span>
+      <h2>Pilotes, Profils & Options</h2>
+      <div class="panel">
+        <p>Le <strong>pilote</strong> détermine où vit le nœud. C'est la décision structurante au démarrage, et elle ne se change pas ensuite sans recréer le cluster.</p>
+      </div>
+      <div class="grid-3" style="margin-top:24px;">
+        <div class="mini-card"><h3>docker</h3><p>Le nœud est un conteneur sur la VM. Démarrage rapide, aucune virtualisation imbriquée requise. <strong>Notre choix.</strong></p><span class="mini-tag">--driver=docker</span></div>
+        <div class="mini-card"><h3>kvm2, virtualbox</h3><p>Le nœud est une machine virtuelle complète. Isolation plus forte, mais impose que la VM sache virtualiser à son tour.</p><span class="mini-tag">indisponible ici</span></div>
+        <div class="mini-card"><h3>none</h3><p>Kubernetes s'installe directement sur la machine hôte, sans isolation. Rapide, mais impossible à nettoyer proprement.</p><span class="mini-tag">à éviter</span></div>
+      </div>
+      <div class="code" style="margin-top:22px;"><span class="cmt">Les options qui comptent pour ces trois jours</span>
+<span class="cmd">$</span> minikube start \
+    --driver=docker \
+    --cpus=2 --memory=3g \        <span class="cmt"># ressources allouees au noeud</span>
+    --cni=calico                  <span class="cmt"># plugin reseau, obligatoire pour le module 13</span>
+
+<span class="cmt">Autres options utiles</span>
+--kubernetes-version=v1.34.0      <span class="cmt"># figer une version precise</span>
+--nodes=2                         <span class="cmt"># plusieurs noeuds sur la meme machine</span>
+-p demo                           <span class="cmt"># un profil, donc un cluster independant</span></div>
+      <div class="maison"><span class="maison-lbl">Le choix du plugin réseau</span><div class="maison-txt">Par défaut, Minikube installe un plugin minimal qui <em>ignore silencieusement</em> les politiques réseau. Vos règles du module 13 sembleraient acceptées sans jamais rien bloquer. Nous imposons donc <em>Calico</em> dès le démarrage, ce qui évite de reconstruire le cluster au jour 3.</div></div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="slide" data-n="3">
+    <div class="content">
+      <span class="step-label">Étape 03 · Sous le capot</span>
+      <h2>Ce qu'il y a Dans le Nœud</h2>
+      <div class="panel">
+        <p>Le nœud Minikube est une machine Linux comme une autre, accessible par <em>minikube ssh</em>. À l'intérieur, kubeadm a déposé la même arborescence que sur n'importe quel cluster.</p>
+      </div>
+      <div class="code" style="margin-top:22px;">/etc/kubernetes/
+├── manifests/            <span class="cmt"># pods statiques, surveilles par le kubelet</span>
+│   ├── etcd.yaml
+│   ├── kube-apiserver.yaml
+│   ├── kube-controller-manager.yaml
+│   └── kube-scheduler.yaml
+├── pki/                  <span class="cmt"># l'autorite de certification et ses certificats</span>
+│   ├── ca.crt  ca.key
+│   ├── apiserver.crt  apiserver.key
+│   └── etcd/
+├── admin.conf            <span class="cmt"># l'acces administrateur complet</span>
+└── kubelet.conf          <span class="cmt"># identite du kubelet local</span></div>
+      <div class="panel" style="margin-top:22px;">
+        <p>Le répertoire <strong>manifests</strong> est surveillé en permanence par le kubelet : modifier un fichier y provoque le redémarrage du composant correspondant, sans passer par l'API server. C'est ainsi que l'on change un paramètre de l'API server, et c'est aussi la porte de secours quand plus rien ne répond.</p>
+        <p>Le répertoire <strong>pki</strong> contient l'autorité de certification. Sa clé privée permet de signer n'importe quelle identité du cluster, y compris administrateur. Elle se sauvegarde et se protège comme un secret de premier niveau.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="slide" data-n="4">
+    <div class="content">
+      <span class="step-label">Étape 04 · L'accès</span>
+      <h2>kubectl & le Fichier kubeconfig</h2>
+      <div class="panel">
+        <p><strong>kubectl</strong> est un client HTTP. Il n'a aucun pouvoir propre : il lit un fichier de configuration, y trouve une adresse d'API server et une identité, puis envoie des requêtes REST. Tout ce que vous pouvez faire dépend des droits attachés à cette identité.</p>
+        <p>Ce fichier, par défaut <em>~/.kube/config</em>, articule trois listes et un pointeur. Minikube y ajoute son contexte et le sélectionne automatiquement au démarrage.</p>
+      </div>
+      <div class="code" style="margin-top:22px;"><span class="key">clusters</span>:      <span class="cmt"># une adresse d'API server + le certificat de l'autorite</span>
+- <span class="key">name</span>: <span class="val">minikube</span>
+  <span class="key">cluster</span>: { <span class="key">server</span>: <span class="val">https://192.168.49.2:8443</span>, <span class="key">certificate-authority</span>: <span class="val">~/.minikube/ca.crt</span> }
+<span class="key">users</span>:         <span class="cmt"># une identite : certificat client, jeton ou plugin</span>
+- <span class="key">name</span>: <span class="val">minikube</span>
+  <span class="key">user</span>: { <span class="key">client-certificate</span>: <span class="val">...</span>, <span class="key">client-key</span>: <span class="val">...</span> }
+<span class="key">contexts</span>:      <span class="cmt"># un couple (cluster, utilisateur) + un namespace par defaut</span>
+- <span class="key">name</span>: <span class="val">minikube</span>
+  <span class="key">context</span>: { <span class="key">cluster</span>: <span class="val">minikube</span>, <span class="key">user</span>: <span class="val">minikube</span>, <span class="key">namespace</span>: <span class="val">default</span> }
+<span class="key">current-context</span>: <span class="val">minikube</span></div>
+      <div class="prod"><span class="prod-lbl">Sur le terrain</span><div class="prod-txt">L'identité créée par Minikube, comme l'<em>admin.conf</em> de kubeadm, appartient au groupe <em>system:masters</em>, qui contourne entièrement RBAC. En production, ce fichier ne se distribue pas. Au module 12, vous créerez des accès nominatifs à droits limités, seule pratique acceptable à plusieurs.</div></div>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="slide" data-n="5">
+    <div class="content">
+      <span class="step-label">Étape 05 · Exploitation</span>
+      <h2>Piloter le Cluster au Quotidien</h2>
+      <div class="code"><span class="cmt">Cycle de vie</span>
+<span class="cmd">$</span> minikube status          <span class="cmt"># etat des composants</span>
+<span class="cmd">$</span> minikube stop            <span class="cmt"># arret propre, l'etat est conserve</span>
+<span class="cmd">$</span> minikube start           <span class="cmt"># redemarrage avec les memes options</span>
+<span class="cmd">$</span> minikube delete          <span class="cmt"># destruction totale, sans confirmation</span>
+
+<span class="cmt">Acces</span>
+<span class="cmd">$</span> minikube ssh             <span class="cmt"># shell dans le noeud</span>
+<span class="cmd">$</span> minikube ip              <span class="cmt"># adresse du noeud, vue de la VM</span>
+<span class="cmd">$</span> minikube service NOM     <span class="cmt"># ouvre un acces vers un service (module 14)</span>
+<span class="cmd">$</span> minikube tunnel          <span class="cmt"># simule un repartiteur de charge (module 14)</span>
+
+<span class="cmt">Modules complementaires</span>
+<span class="cmd">$</span> minikube addons list
+<span class="cmd">$</span> minikube addons enable metrics-server
+<span class="cmd">$</span> minikube addons enable ingress          <span class="cmt"># module 15</span></div>
+      <div class="panel" style="margin-top:22px;">
+        <p>Les <strong>modules complémentaires</strong> sont de simples manifestes appliqués dans le cluster. Rien de magique : <em>minikube addons enable metrics-server</em> crée exactement le même Deployment que vous auriez appliqué à la main sur un cluster de production. Vous pourrez d'ailleurs les lire avec <em>kubectl get all -n kube-system</em>.</p>
+      </div>
+      <div class="maison"><span class="maison-lbl">Deux commandes à ne pas confondre</span><div class="maison-txt"><em>minikube stop</em> éteint le nœud et conserve tout : vos objets seront là demain matin. <em>minikube delete</em> supprime le cluster et son contenu, sans demander confirmation. Le premier termine la journée, le second sert à repartir de zéro.</div></div>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <div class="slide" data-n="6">
+    <div class="content">
+      <span class="step-label">Étape 06 · QCM</span>
+      <h2>Vérifiez vos Acquis</h2>
+      <div class="qcm-grid">
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 01</div><div class="q-text">Minikube installe une version allégée du plan de contrôle.</div></div>
+            <div class="flip-back"><div class="b-title">Les vrais composants</div><p>À l'intérieur du nœud, kubeadm installe l'API server, etcd, le scheduler et le controller-manager officiels, sous forme de pods statiques. Seule l'échelle change.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 02</div><div class="q-text">Le choix du plugin réseau se fait au démarrage et conditionne les politiques réseau.</div></div>
+            <div class="flip-back"><div class="b-title">Décision structurante</div><p>Le plugin par défaut accepte les NetworkPolicy sans jamais les appliquer. Calico ou Cilium sont nécessaires pour qu'elles aient un effet réel.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 03</div><div class="q-text">Modifier un fichier de /etc/kubernetes/manifests redémarre le composant concerné.</div></div>
+            <div class="flip-back"><div class="b-title">Pods statiques</div><p>Le kubelet surveille ce répertoire et applique tout changement immédiatement, sans l'API server. C'est le seul moyen de reconfigurer l'API server, et la porte de secours quand il ne répond plus.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 04</div><div class="q-text">minikube stop détruit les objets créés dans le cluster.</div></div>
+            <div class="flip-back"><div class="b-title">Il conserve tout</div><p>L'arrêt éteint le nœud sans toucher à etcd. C'est <em>minikube delete</em> qui supprime le cluster et son contenu, sans demander confirmation.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7 -->
+  <div class="slide" data-n="7">
+    <div class="content">
+      <span class="step-label">Étape 07 · Atelier</span>
+      <h2>Atelier 3 : Démarrer le Cluster</h2>
+      <div class="lab">
+        <span class="lab-badge">Atelier 03 · Partie 1 · 25 minutes</span>
+        <h3>Installer kubectl et Minikube, puis lancer le nœud</h3>
+        <div class="lab-section">
+          <div class="lab-section-title">1. Les deux binaires</div><div class="code"><span class="cmt">kubectl, version stable courante</span>
+<span class="cmd">$</span> cd ~ &amp;&amp; curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+<span class="cmd">$</span> sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+<span class="cmd">$</span> kubectl version --client
+
+<span class="cmt">minikube</span>
+<span class="cmd">$</span> curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+<span class="cmd">$</span> sudo install minikube-linux-amd64 /usr/local/bin/minikube
+<span class="cmd">$</span> minikube version</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">2. Démarrer (comptez 3 à 6 minutes la première fois)</div><div class="code"><span class="cmd">$</span> minikube start --driver=docker --cpus=2 --memory=3g --cni=calico
+<span class="cmt">Si la VM est juste en memoire, descendez a --memory=2200mb</span>
+
+<span class="cmd">$</span> minikube status
+<span class="cmt">Le noeud est un conteneur sur votre VM : verifiez-le</span>
+<span class="cmd">$</span> docker ps --filter name=minikube
+<span class="cmt">Attendu : Ready. Calico peut prendre une minute de plus.</span>
+<span class="cmd">$</span> kubectl get nodes -o wide
+<span class="cmd">$</span> kubectl get pods -A</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">3. Confort de travail</div><div class="code"><span class="cmd">$</span> echo 'source &lt;(kubectl completion bash)' &gt;&gt; ~/.bashrc
+<span class="cmd">$</span> echo 'alias k=kubectl; complete -o default -F __start_kubectl k' &gt;&gt; ~/.bashrc
+<span class="cmd">$</span> source ~/.bashrc
+<span class="cmd">$</span> kubectl config get-contexts
+<span class="cmd">$</span> kubectl cluster-info</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">En cas d'échec</div>
+          <p>Lisez le message, Minikube nomme précisément le prérequis manquant. Les deux causes fréquentes : Docker exige encore <em>sudo</em> (reprenez l'atelier 1), ou la mémoire demandée dépasse celle de la VM. <em>minikube delete</em> puis un nouveau <em>start</em> repartent proprement.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8 -->
+  <div class="slide" data-n="8">
+    <div class="content">
+      <span class="step-label">Étape 08 · Atelier</span>
+      <h2>Atelier 3 : Ouvrir le Capot</h2>
+      <div class="lab">
+        <span class="lab-badge">Atelier 03 · Partie 2 · 25 minutes</span>
+        <h3>Retrouver dans le nœud tous les composants du module 2</h3>
+        <div class="lab-section">
+          <div class="lab-section-title">1. À l'intérieur du nœud</div><div class="code"><span class="cmd">$</span> minikube ssh
+<span class="cmt">Les quatre pods statiques du plan de controle</span>
+<span class="cmd">$</span> ls -l /etc/kubernetes/manifests/
+<span class="cmt">Les arguments reels de l'API server</span>
+<span class="cmd">$</span> sudo grep -E 'advertise-address|service-cluster-ip-range|authorization-mode' \
+    /etc/kubernetes/manifests/kube-apiserver.yaml
+<span class="cmt">L'autorite de certification</span>
+<span class="cmd">$</span> sudo ls /etc/kubernetes/pki/
+<span class="cmt">Le kubelet, seul composant non conteneurise</span>
+<span class="cmd">$</span> systemctl status kubelet --no-pager | head -5
+<span class="cmt">Le runtime et la configuration reseau</span>
+<span class="cmd">$</span> ls /etc/cni/net.d/
+<span class="cmd">$</span> exit</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">2. Les mêmes composants, vus par l'API</div><div class="code"><span class="cmd">$</span> kubectl get pods -n kube-system -o wide
+<span class="cmt">Un pod statique porte le nom du noeud en suffixe</span>
+<span class="cmd">$</span> kubectl get pod -n kube-system -l component=kube-apiserver
+<span class="cmt">Les journaux du plan de controle, comme n'importe quel pod</span>
+<span class="cmd">$</span> kubectl logs -n kube-system -l component=kube-scheduler --tail=10</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">3. Modules complémentaires et premier pod</div><div class="code"><span class="cmd">$</span> minikube addons list | head -20
+<span class="cmd">$</span> minikube addons enable metrics-server
+<span class="cmd">$</span> kubectl get deploy -n kube-system metrics-server
+
+<span class="cmd">$</span> kubectl run saucisse-1 --image=nginx:1.27 --port=80
+<span class="cmd">$</span> kubectl get pod saucisse-1 -o wide
+<span class="cmd">$</span> kubectl describe pod saucisse-1 | tail -12
+<span class="cmt">Depuis le noeud, sur l'IP du pod affichee ci-dessus</span>
+<span class="cmd">$</span> minikube ssh -- curl -s -o /dev/null -w "%{http_code}\n" http://&lt;IP-DU-POD&gt;</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">4. Bonus : un deuxième nœud</div><div class="code"><span class="cmt">Uniquement si la VM dispose de memoire libre</span>
+<span class="cmd">$</span> minikube node add
+<span class="cmd">$</span> kubectl get nodes
+<span class="cmd">$</span> kubectl get pods -A -o wide | grep -c minikube-m02</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">Validation</div>
+          <p>Vous devez pouvoir citer, fichier à l'appui, où se trouvent les manifestes du plan de contrôle, où se trouve l'autorité de certification, et quel plugin réseau est actif. Le pod <em>saucisse-1</em> doit répondre 200. Conservez-le, il sert au module 4.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9 -->
+  <div class="slide" data-n="9">
+    <div class="content">
+      <span class="step-label">Étape 09 · Conclusion</span>
+      <h2>Récapitulatif du Module 3</h2>
+      <div class="panel"><ul>
+        <li><strong>Minikube</strong> installe un vrai cluster via kubeadm dans un nœud unique, et en gère le cycle de vie.</li>
+        <li><strong>Options structurantes :</strong> pilote docker, ressources allouées, et surtout <em>--cni=calico</em> pour que les politiques réseau du module 13 soient réellement appliquées.</li>
+        <li><strong>Dans le nœud :</strong> /etc/kubernetes/manifests pour reconfigurer, pki pour l'autorité de certification, kubelet en service systemd.</li>
+        <li><strong>kubectl :</strong> un client REST dont tous les pouvoirs viennent du kubeconfig, structuré en clusters, users et contexts.</li>
+        <li><strong>Réversible :</strong> stop conserve, delete détruit. On peut repartir de zéro en quelques minutes.</li>
+      </ul></div>
+      <div class="maison"><span class="maison-lbl">Prochaine étape</span><div class="maison-txt">Le pod <em>saucisse-1</em> a reçu une adresse IP. D'où vient-elle, qui l'a attribuée, et pourquoi est-elle joignable depuis le nœud ? Le module 4 ouvre la couche réseau que Calico vient de poser.</div></div>
+      <a href="module-4.html" class="next-mod">Module 4 : le Réseau du Cluster ></a>
+    </div>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="btn" onclick="navSlide(-1)">&lsaquo;</button>
+  <div class="dots" id="dots"></div>
+  <button class="btn" onclick="navSlide(1)">&rsaquo;</button>
+</div>
+
+<script>
+  let cur = 1;
+  const total = 9;
+  const dotsContainer = document.getElementById('dots');
+  for(let i=1; i<=total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 1 ? ' active' : '');
+    dot.onclick = () => goToSlide(i);
+    dotsContainer.appendChild(dot);
+  }
+  function navSlide(dir) { goToSlide(cur + dir); }
+  function goToSlide(n) {
+    if(n < 1 || n > total) return;
+    cur = n;
+    document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+    document.querySelector(`.slide[data-n="${cur}"]`).classList.add('active');
+    document.querySelectorAll('.dot').forEach((d, i) => { d.classList.toggle('active', i + 1 === cur); });
+  }
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowRight') navSlide(1);
+    if(e.key === 'ArrowLeft') navSlide(-1);
+  });
+</script>
+</body>
+</html>

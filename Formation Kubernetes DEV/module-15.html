@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 15 &middot; Exposer : Ingress & Gateway API</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117; --txt: #e6edf3; --muted: #8b949e;
+      --line: rgba(255, 255, 255, 0.1); --panel: rgba(255, 255, 255, 0.04);
+      --c1: #7ee787; --c2: #58a6ff;
+      --font-display: 'Instrument Serif', Georgia, serif; --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--font-body); background: var(--bg); color: var(--txt); overflow: hidden; height: 100vh; }
+    .deck { width: 100vw; height: 100vh; position: relative; }
+    .slide { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transform: scale(0.97) translateY(20px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
+    .slide.active { opacity: 1; transform: scale(1) translateY(0); pointer-events: all; z-index: 10; }
+    .blobs { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.15; }
+    .blob-1 { top: -10%; right: -5%; width: 500px; height: 500px; background: var(--c1); }
+    .blob-2 { bottom: -10%; left: -5%; width: 400px; height: 400px; background: var(--c2); }
+    .content { position: relative; z-index: 2; width: 100%; max-width: 1100px; padding: 40px; max-height: 85vh; overflow-y: auto; }
+    .content::-webkit-scrollbar { width: 6px; }
+    .content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    .step-label { font-weight: 700; text-transform: uppercase; letter-spacing: 3px; color: var(--c1); font-size: 0.75rem; margin-bottom: 16px; display: block; opacity: 0.8; }
+    h1 { font-family: var(--font-display); font-size: clamp(3.5rem, 5vw, 4.5rem); font-style: italic; line-height: 1.05; margin: 0 0 30px; background: linear-gradient(135deg, #fff, var(--c1)); -webkit-background-clip: text; color: transparent; }
+    h2 { font-family: var(--font-display); font-size: clamp(2.5rem, 4vw, 3.2rem); font-style: italic; margin: 0 0 24px; color: #fff; font-weight: 400; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 35px 40px; line-height: 1.8; font-size: 1.1rem; color: #c9d1d9; backdrop-filter: blur(12px); box-shadow: 0 25px 50px rgba(0,0,0,0.2); }
+    .panel p { margin: 0 0 20px; } .panel p:last-child { margin-bottom: 0; }
+    .panel strong { color: #fff; font-weight: 500; }
+    .panel ul { margin: 0; padding-left: 20px; } .panel li { margin-bottom: 12px; }
+    .panel em { color: var(--c1); font-style: normal; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .mini-card { padding: 22px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 16px; }
+    .mini-card h3 { margin: 0 0 10px; font-size: 1.05rem; color: #fff; font-weight: 500; }
+    .mini-card p { margin: 0; font-size: 0.92rem; color: var(--muted); line-height: 1.6; }
+    .mini-card .mini-num { font-family: var(--font-display); font-style: italic; font-size: 2rem; color: var(--c1); line-height: 1; margin-bottom: 8px; }
+    .mini-card .mini-tag { font-family: var(--font-mono); font-size: 0.78rem; color: var(--c2); display: block; margin-top: 8px; }
+    .qcm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px; }
+    .flip-card { perspective: 1200px; height: 200px; cursor: pointer; }
+    .flip-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1); transform-style: preserve-3d; border-radius: 20px; }
+    .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
+    .flip-front, .flip-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; padding: 25px; display: flex; flex-direction: column; justify-content: center; backdrop-filter: blur(10px); }
+    .flip-front { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); transition: background 0.3s, border-color 0.3s; }
+    .flip-front:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.2); }
+    .q-num { font-size: 0.8rem; font-weight: 700; color: var(--c1); margin-bottom: 10px; letter-spacing: 1px; }
+    .q-text { font-size: 1.05rem; font-weight: 500; color: #fff; line-height: 1.5; }
+    .flip-back { transform: rotateY(180deg); font-size: 0.95rem; line-height: 1.6; border: 1px solid transparent; }
+    .b-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+    .flip-card[data-correct="true"] .flip-back { background: rgba(63, 185, 80, 0.08); border-color: rgba(63, 185, 80, 0.3); box-shadow: 0 10px 30px rgba(63, 185, 80, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="true"] .b-title { color: #3fb950; }
+    .flip-card[data-correct="true"] .b-title::after { content: 'Vrai'; font-size: 0.8rem; padding: 2px 8px; background: rgba(63, 185, 80, 0.2); border-radius: 10px; }
+    .flip-card[data-correct="false"] .flip-back { background: rgba(248, 81, 73, 0.08); border-color: rgba(248, 81, 73, 0.3); box-shadow: 0 10px 30px rgba(248, 81, 73, 0.1); color: #e6edf3; }
+    .flip-card[data-correct="false"] .b-title { color: #f85149; }
+    .flip-card[data-correct="false"] .b-title::after { content: 'Faux'; font-size: 0.8rem; padding: 2px 8px; background: rgba(248, 81, 73, 0.2); border-radius: 10px; }
+    .maison { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.10); border-left: 3px solid var(--c1); border-radius: 12px; padding: 18px 24px; margin-top: 22px; }
+    .maison-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c1); margin-bottom: 8px; opacity: 0.85; }
+    .maison-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .maison-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .prod { background: rgba(63,185,80,0.05); border: 1px solid rgba(63,185,80,0.18); border-left: 3px solid var(--c2); border-radius: 12px; padding: 18px 24px; margin-top: 18px; }
+    .prod-lbl { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c2); margin-bottom: 8px; opacity: 0.9; }
+    .prod-txt { line-height: 1.7; color: #c9d1d9; font-size: 1.0rem; }
+    .prod-txt em { color: #e6edf3; font-style: normal; font-weight: 600; }
+    .lab { background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border: 1px solid var(--c1); border-radius: 24px; padding: 35px 40px; box-shadow: 0 0 60px rgba(0,0,0,0.3); }
+    .lab-badge { display: inline-block; padding: 4px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--c1); border-radius: 50px; color: var(--c1); font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+    .lab h3 { font-family: var(--font-display); font-style: italic; font-size: 1.7rem; margin: 0 0 18px; color: #fff; font-weight: 400; }
+    .lab-section { margin-top: 20px; }
+    .lab-section-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--c1); margin-bottom: 10px; opacity: 0.85; }
+    .code { font-family: var(--font-mono); background: rgba(0,0,0,0.5); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; font-size: 0.88rem; color: #c9d1d9; overflow-x: auto; white-space: pre; line-height: 1.55; }
+    .code .cmt { color: #6e7681; font-style: italic; }
+    .code .cmd { color: var(--c1); }
+    .code .key { color: #79c0ff; }
+    .code .val { color: #a5d6ff; }
+    .lab ol, .lab ul { margin: 0; padding-left: 20px; line-height: 1.7; color: #c9d1d9; font-size: 1rem; }
+    .lab li { margin-bottom: 8px; }
+    .lab p { color: #c9d1d9; line-height: 1.7; margin: 0 0 12px; font-size: 1rem; }
+    .next-mod { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; text-decoration: none; color: var(--c1); font-weight: 500; font-size: 0.95rem; padding: 10px 22px; border: 1px solid var(--c1); border-radius: 50px; background: rgba(255,255,255,0.03); transition: all 0.3s; }
+    .next-mod:hover { background: rgba(255,255,255,0.09); transform: translateX(4px); }
+    .nav { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 20px; background: rgba(13, 17, 23, 0.7); padding: 12px 30px; border-radius: 50px; border: 1px solid var(--line); backdrop-filter: blur(20px); z-index: 100; }
+    .btn { background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; transition: color 0.2s; padding: 0 10px; }
+    .btn:hover { color: #fff; }
+    .dots { display: flex; gap: 10px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); cursor: pointer; transition: all 0.3s; }
+    .dot.active { background: var(--c1); transform: scale(1.4); box-shadow: 0 0 10px var(--c1); }
+    .home { position: fixed; top: 25px; left: 25px; color: var(--muted); text-decoration: none; font-size: 0.85rem; padding: 8px 16px; border: 1px solid var(--line); border-radius: 50px; background: rgba(13,17,23,0.6); backdrop-filter: blur(10px); transition: all 0.3s; z-index: 100; }
+    .home:hover { color: #fff; border-color: var(--c1); }
+  </style>
+</head>
+<body>
+
+<a href="index.html" class="home">&larr; Sommaire</a>
+
+<div class="deck">
+  <div class="blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+
+  <!-- 1 -->
+  <div class="slide active" data-n="1">
+    <div class="content">
+      <span class="step-label">Étape 01 · Le problème</span>
+      <h1>Ingress & Gateway API</h1>
+      <div class="panel">
+        <p>Exposer dix applications avec dix Services de type LoadBalancer, c'est dix adresses publiques à payer, dix certificats à gérer et dix entrées DNS à maintenir. Avec des NodePort, c'est dix URL en <em>:31427</em> que personne ne retiendra.</p>
+        <p>L'<strong>Ingress</strong> répond à ce besoin : un point d'entrée HTTP unique, qui lit le nom de domaine demandé et le chemin de l'URL, puis oriente la requête vers le bon Service interne. Une seule adresse externe, un seul endroit pour le TLS, autant d'applications que voulu derrière.</p>
+        <p>La différence de nature avec le module précédent est importante. Un Service travaille au niveau des connexions TCP. Un Ingress travaille au niveau <strong>HTTP</strong> : il lit les en-têtes, donc il peut décider en fonction de leur contenu.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="slide" data-n="2">
+    <div class="content">
+      <span class="step-label">Étape 02 · Deux objets distincts</span>
+      <h2>La Ressource & le Contrôleur</h2>
+      <div class="grid" style="margin-top:6px;">
+        <div class="mini-card"><h3>La ressource Ingress</h3><p>Un objet Kubernetes qui <strong>décrit</strong> des règles de routage. Purement déclaratif, il ne fait rigoureusement rien tout seul. Vous pouvez en créer cent sur un cluster nu, aucune requête ne sera routée.</p><span class="mini-tag">la description</span></div>
+        <div class="mini-card"><h3>Le contrôleur d'entrée</h3><p>Un ou plusieurs pods qui <strong>surveillent</strong> ces objets, reconfigurent un mandataire HTTP en conséquence et reçoivent réellement le trafic. C'est lui qui fait le travail, et il doit être installé séparément.</p><span class="mini-tag">l'exécution</span></div>
+      </div>
+      <div class="panel" style="margin-top:24px;">
+        <p>Cette séparation explique la panne la plus fréquente sur ce sujet : un Ingress créé, accepté par l'API, visible dans <em>kubectl get ingress</em>, et pourtant sans effet. Il manque simplement un contrôleur, ou l'Ingress ne désigne pas la bonne classe.</p>
+        <p>Le champ <strong>ingressClassName</strong> désigne quel contrôleur doit prendre en charge la règle. Un cluster peut en héberger plusieurs, par exemple un pour le trafic public et un pour le trafic interne.</p>
+      </div>
+      <div class="code" style="margin-top:22px;"><span class="cmd">$</span> kubectl get ingressclass
+<span class="cmd">$</span> kubectl get pods -n ingress-nginx
+<span class="cmt">Sans resultat a ces deux commandes, aucun Ingress ne fonctionnera</span></div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="slide" data-n="3">
+    <div class="content">
+      <span class="step-label">Étape 03 · La règle</span>
+      <h2>Anatomie d'un Ingress</h2>
+      <div class="code"><span class="key">apiVersion</span>: <span class="val">networking.k8s.io/v1</span>
+<span class="key">kind</span>: <span class="val">Ingress</span>
+<span class="key">metadata</span>: { <span class="key">name</span>: <span class="val">routeur</span> }
+<span class="key">spec</span>:
+  <span class="key">ingressClassName</span>: <span class="val">nginx</span>       <span class="cmt"># quel controleur s'en occupe</span>
+  <span class="key">tls</span>:
+  - <span class="key">hosts</span>: [<span class="val">saucisse.local</span>]
+    <span class="key">secretName</span>: <span class="val">saucisse-tls</span>          <span class="cmt"># Secret de type kubernetes.io/tls</span>
+  <span class="key">rules</span>:
+  - <span class="key">host</span>: <span class="val">saucisse.local</span>             <span class="cmt"># routage par nom de domaine</span>
+    <span class="key">http</span>:
+      <span class="key">paths</span>:
+      - <span class="key">path</span>: <span class="val">/app</span>              <span class="cmt"># routage par chemin</span>
+        <span class="key">pathType</span>: <span class="val">Prefix</span>
+        <span class="key">backend</span>:
+          <span class="key">service</span>: { <span class="key">name</span>: <span class="val">saucisse</span>, <span class="key">port</span>: { <span class="key">number</span>: <span class="val">80</span> } }
+      - <span class="key">path</span>: <span class="val">/</span>
+        <span class="key">pathType</span>: <span class="val">Prefix</span>
+        <span class="key">backend</span>:
+          <span class="key">service</span>: { <span class="key">name</span>: <span class="val">site</span>, <span class="key">port</span>: { <span class="key">number</span>: <span class="val">80</span> } }</div>
+      <div class="panel" style="margin-top:22px;">
+        <p>Trois points à retenir. Le <strong>backend est toujours un Service</strong>, jamais un pod : l'Ingress ne remplace pas le Service, il se pose devant. Le <strong>pathType</strong> peut valoir <em>Prefix</em> (le chemin commence par) ou <em>Exact</em>, et l'omettre est une source d'ambiguïté. Enfin, le <strong>certificat TLS</strong> est un Secret ordinaire, et c'est le contrôleur qui termine le chiffrement : le trafic circule ensuite en clair dans le cluster, sauf configuration particulière.</p>
+      </div>
+      <div class="prod"><span class="prod-lbl">La limite du modèle</span><div class="prod-txt">L'API Ingress ne sait exprimer que le routage par nom et par chemin. Tout le reste, réécriture d'URL, redirections, limitation de débit, en-têtes, se fait par des <em>annotations</em> propres à chaque contrôleur. Ces annotations ne sont pas standardisées, ce qui rend un Ingress difficilement portable d'un contrôleur à l'autre. C'est précisément le problème que Gateway API vient corriger.</div></div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="slide" data-n="4">
+    <div class="content">
+      <span class="step-label">Étape 04 · État de l'art</span>
+      <h2>Ce qui Change en 2026</h2>
+      <div class="panel">
+        <p>Un point d'actualité que vous devez connaître avant de conseiller quoi que ce soit en production. Le contrôleur communautaire <strong>ingress-nginx</strong>, longtemps la référence par défaut et présent sur environ la moitié des clusters, a été <strong>retiré par le projet Kubernetes en mars 2026</strong>, faute de mainteneurs.</p>
+        <p>Concrètement : plus aucune version, plus aucun correctif, plus aucun correctif de sécurité. Les installations existantes continuent de fonctionner et les artefacts restent téléchargeables, mais toute vulnérabilité découverte restera ouverte. Le comité de pilotage a été explicite sur l'urgence de migrer.</p>
+        <p>L'API Ingress elle-même n'est pas dépréciée. Elle est <strong>gelée</strong> : elle n'évoluera plus, mais elle reste servie et supportée.</p>
+      </div>
+      <div class="grid-3" style="margin-top:24px;">
+        <div class="mini-card"><h3>Gateway API</h3><p>Le successeur officiel. Des objets distincts pour l'infrastructure et pour les routes, un modèle par rôles, et le routage avancé enfin standardisé. Implémenté par Envoy Gateway, Istio, Traefik, Cilium.</p><span class="mini-tag">la cible</span></div>
+        <div class="mini-card"><h3>Contrôleurs maintenus</h3><p>Traefik, HAProxy, Envoy Gateway, ou le contrôleur NGINX de F5. Tous gèrent l'API Ingress, aucun n'est un remplacement direct : les annotations diffèrent.</p><span class="mini-tag">migration courte</span></div>
+        <div class="mini-card"><h3>Notre atelier</h3><p>Le module complémentaire de Minikube installe ingress-nginx. Il fonctionne parfaitement pour apprendre l'API, mais ne le déployez pas en production sans en mesurer le risque.</p><span class="mini-tag">pédagogie</span></div>
+      </div>
+      <div class="maison"><span class="maison-lbl">Gateway API en une phrase</span><div class="maison-txt">Là où l'Ingress mélangeait tout dans un objet, Gateway API sépare les rôles : la <em>Gateway</em> est déployée par l'équipe plateforme avec ses ports et ses certificats, les <em>HTTPRoute</em> sont écrites par les équipes applicatives dans leur namespace. Le routage avancé, comme envoyer 10 % du trafic vers une nouvelle version, s'écrit enfin dans l'API standard au lieu d'annotations propriétaires. Tout nouveau projet devrait commencer directement par là.</div></div>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="slide" data-n="5">
+    <div class="content">
+      <span class="step-label">Étape 05 · QCM</span>
+      <h2>Vérifiez vos Acquis</h2>
+      <div class="qcm-grid">
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 01</div><div class="q-text">Un Ingress sans contrôleur installé n'a aucun effet.</div></div>
+            <div class="flip-back"><div class="b-title">Description seule</div><p>La ressource est acceptée et stockée, mais rien ne route le trafic. Vérifiez toujours la présence d'une IngressClass et des pods du contrôleur.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 02</div><div class="q-text">L'Ingress remplace le Service : il route directement vers les pods.</div></div>
+            <div class="flip-back"><div class="b-title">Il se pose devant</div><p>Le backend d'une règle est toujours un Service. L'Ingress ajoute une couche HTTP au-dessus de ce qui existe déjà.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="true" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 03</div><div class="q-text">Les fonctions avancées d'un Ingress passent par des annotations propres au contrôleur.</div></div>
+            <div class="flip-back"><div class="b-title">D'où le manque de portabilité</div><p>Réécritures, limitation de débit, en-têtes : rien n'est standardisé. Changer de contrôleur impose de réécrire ces annotations, et c'est ce que Gateway API corrige.</p></div>
+          </div>
+        </div>
+        <div class="flip-card" data-correct="false" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner">
+            <div class="flip-front"><div class="q-num">QUESTION 04</div><div class="q-text">L'API Ingress a été supprimée de Kubernetes en 2026.</div></div>
+            <div class="flip-back"><div class="b-title">Gelée, pas supprimée</div><p>C'est le contrôleur communautaire ingress-nginx qui a été retiré. L'API reste servie et supportée, mais elle n'évoluera plus au profit de Gateway API.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <div class="slide" data-n="6">
+    <div class="content">
+      <span class="step-label">Étape 06 · Atelier</span>
+      <h2>Atelier 15 : un Point d'Entrée Unique</h2>
+      <div class="lab">
+        <span class="lab-badge">Atelier 15 · 35 minutes</span>
+        <h3>Router deux applications derrière un seul nom de domaine</h3>
+        <div class="lab-section">
+          <div class="lab-section-title">1. Installer le contrôleur</div><div class="code"><span class="cmd">$</span> minikube addons enable ingress
+<span class="cmt">Patientez que les pods soient Running</span>
+<span class="cmd">$</span> kubectl get pods -n ingress-nginx -w
+<span class="cmd">$</span> kubectl get ingressclass</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">2. Deux services à router</div><div class="code"><span class="cmt">saucisse existe depuis le module 14, site depuis le module 9</span>
+<span class="cmd">$</span> kubectl expose deployment site --port=80 2&gt;/dev/null ; kubectl get svc saucisse site
+<span class="cmt">Un nom de domaine local qui pointe vers le noeud</span>
+<span class="cmd">$</span> echo "$(minikube ip) saucisse.local" | sudo tee -a /etc/hosts
+<span class="cmd">$</span> ping -c1 saucisse.local</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">3. La règle de routage</div><div class="code"><span class="cmd">$</span> cd ~/k8s &amp;&amp; cat &gt; ingress.yaml &lt;&lt;'EOF'
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: { name: routeur }
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: saucisse.local
+    http:
+      paths:
+      - path: /app
+        pathType: Prefix
+        backend:
+          service: { name: saucisse, port: { number: 80 } }
+      - path: /
+        pathType: Prefix
+        backend:
+          service: { name: site, port: { number: 80 } }
+EOF
+<span class="cmd">$</span> kubectl apply -f ingress.yaml
+<span class="cmt">Attendu : une adresse apparait dans la colonne ADDRESS</span>
+<span class="cmd">$</span> kubectl get ingress routeur
+<span class="cmd">$</span> kubectl describe ingress routeur
+
+<span class="cmt">Deux applications, un seul point d'entree</span>
+<span class="cmd">$</span> curl -s http://saucisse.local/
+<span class="cmd">$</span> curl -s http://saucisse.local/app</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">4. Ajouter le TLS</div><div class="code"><span class="cmd">$</span> openssl req -x509 -nodes -days 30 -newkey rsa:2048 \
+    -keyout saucisse.key -out saucisse.crt -subj "/CN=saucisse.local"
+<span class="cmd">$</span> kubectl create secret tls saucisse-tls --cert=saucisse.crt --key=saucisse.key
+<span class="cmd">$</span> kubectl patch ingress routeur --type=json -p='[{"op":"add","path":"/spec/tls",
+    "value":[{"hosts":["saucisse.local"],"secretName":"saucisse-tls"}]}]'
+<span class="cmt">-k car le certificat est auto-signe</span>
+<span class="cmd">$</span> curl -sk https://saucisse.local/app
+<span class="cmd">$</span> curl -s -o /dev/null -w "%{http_code}\n" http://saucisse.local/app   <span class="cmt"># redirection 308</span></div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">5. Le diagnostic</div><div class="code"><span class="cmt">Une classe inexistante : l'objet est accepte, rien ne se passe</span>
+<span class="cmd">$</span> kubectl patch ingress routeur -p '{"spec":{"ingressClassName":"absent"}}'
+<span class="cmd">$</span> curl -s -o /dev/null -w "%{http_code}\n" http://saucisse.local/app
+<span class="cmd">$</span> kubectl logs -n ingress-nginx -l app.kubernetes.io/component=controller --tail=20
+<span class="cmd">$</span> kubectl patch ingress routeur -p '{"spec":{"ingressClassName":"nginx"}}'</div>
+        </div>
+        <div class="lab-section">
+          <div class="lab-section-title">Validation</div>
+          <p>Deux applications doivent répondre sur le même nom de domaine, en HTTP puis en HTTPS, et vous devez savoir nommer les trois vérifications à faire face à un Ingress qui ne route rien : la classe, la présence du contrôleur, et l'existence du Service en backend.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7 -->
+  <div class="slide" data-n="7">
+    <div class="content">
+      <span class="step-label">Étape 07 · Conclusion</span>
+      <h2>Récapitulatif du Module 15</h2>
+      <div class="panel"><ul>
+        <li><strong>Un point d'entrée HTTP unique</strong> qui route par nom de domaine et par chemin, et termine le TLS.</li>
+        <li><strong>Ressource et contrôleur sont deux choses distinctes.</strong> Sans contrôleur, un Ingress ne fait rien.</li>
+        <li><strong>Le backend est toujours un Service.</strong> L'Ingress se pose devant, il ne remplace rien.</li>
+        <li><strong>Les fonctions avancées passent par des annotations</strong> propres à chaque contrôleur, donc non portables.</li>
+        <li><strong>ingress-nginx est retiré depuis mars 2026.</strong> L'API Ingress reste supportée mais gelée. Gateway API est la cible pour tout nouveau projet.</li>
+      </ul></div>
+      <div class="maison"><span class="maison-lbl">Prochaine étape</span><div class="maison-txt">Tout est déployé, exposé et sécurisé. Reste la moitié du métier dont personne ne parle en formation : que faire quand ça ne marche pas. Le module 16 propose une méthode, des outils et beaucoup de pannes réelles à diagnostiquer.</div></div>
+      <a href="module-16.html" class="next-mod">Module 16 : Dépannage & Supervision ></a>
+    </div>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="btn" onclick="navSlide(-1)">&lsaquo;</button>
+  <div class="dots" id="dots"></div>
+  <button class="btn" onclick="navSlide(1)">&rsaquo;</button>
+</div>
+
+<script>
+  let cur = 1;
+  const total = 7;
+  const dotsContainer = document.getElementById('dots');
+  for(let i=1; i<=total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 1 ? ' active' : '');
+    dot.onclick = () => goToSlide(i);
+    dotsContainer.appendChild(dot);
+  }
+  function navSlide(dir) { goToSlide(cur + dir); }
+  function goToSlide(n) {
+    if(n < 1 || n > total) return;
+    cur = n;
+    document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+    document.querySelector(`.slide[data-n="${cur}"]`).classList.add('active');
+    document.querySelectorAll('.dot').forEach((d, i) => { d.classList.toggle('active', i + 1 === cur); });
+  }
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowRight') navSlide(1);
+    if(e.key === 'ArrowLeft') navSlide(-1);
+  });
+</script>
+</body>
+</html>

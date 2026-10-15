@@ -1,0 +1,12 @@
+apiVersion: v1              # la version de l'API (ici, le groupe de base)
+kind: Pod                  # le TYPE d'objet qu'on cree
+metadata:                  # l'identite : nom et etiquettes
+  name: web
+  labels:
+    app: web
+spec:                      # la SPECIFICATION : ce qu'on veut vraiment
+  containers:
+  - name: nginx
+    image: nginx:1.25
+    ports:
+    - containerPort: 80
